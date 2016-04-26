@@ -16,8 +16,6 @@ def connect(apiToken):
     parsed = json.loads(b64decode(apiToken))
     assert type(parsed) is dict, 'decoded apiToken must be a dict'
 
-    print parsed
-
     url, token = parsed[u'url'], parsed[u'token']
     assert type(url) is unicode, 'decoded url must be a unicode'
     assert len(url) > 0, "len(<decoded apiToken>['url']) must be > 0"
