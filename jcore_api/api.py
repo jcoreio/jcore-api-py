@@ -5,8 +5,6 @@ import json
 from .api_common import LOCAL_SOCKET_PATH
 from .connection import Connection
 
-# eyJ1cmwiOiJ3czovL2xvY2FsaG9zdDozMDMwL2pjb3JlLWFwaSIsInRva2VuIjoiRWxsOGpBd1NRcGd4d2RidkJDSXo4dGZqL2VWSE9nWnV2RGFVM1JxM0tZRnFZaXVYeWZDa1VnbTlQbmVINHQ5aCJ9
-
 def connect(apiToken):
     """Connects to a jcore.io server.
     """

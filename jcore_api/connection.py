@@ -84,6 +84,28 @@ class Connection:
     finally:
       self._lock.release()
 
+  def getRealTimeData(self, request = None):
+    if request:
+      assert type(request) is dict, "request must be a dict if present"
+      if ('channelIds' in request):
+        assert type(request['channelIds']) is list, "channelIds must be a list if present"
+    return self._call('getRealTimeData', request)
+
+  def setRealTimeData(self, request):
+    assert type(request) is dict, "request must be a dict"
+    self._call('setRealTimeData', request)
+
+  def getMetadata(self, request):
+    if request:
+      assert type(request) is dict, "request must be a dict if present"
+      if ('channelIds' in request):
+        assert type(request['channelIds']) is list, "channelIds must be a list if present"
+    return self._call('getMetadata', request)
+
+  def setMetadata(self, request):
+    assert type(request) is dict, "request must be a dict"
+    self._call('setMetadata', request)
+
   def _call(self, method, *params):
     assert type(method) is str and len(method) > 0, "method must be a non-empty str"
 
