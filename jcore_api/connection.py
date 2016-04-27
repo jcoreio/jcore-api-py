@@ -9,6 +9,17 @@ METHOD = six.u('method')
 RESULT = six.u('result')
 
 class Connection:
+  """
+  A connection a to jcore.io server.
+
+  sock: the socket to communicate with.  It must have these methods
+    send(message):  sends a message
+    recv():         receives a message
+    close():        closes the socket
+  authRequired: whether authentication is required.
+                If so, methods will throw an error if the client is not authenticated.
+                default is True
+  """
   def __init__(self, sock, authRequired=True):
     self._lock = threading.RLock()
     self._sock = sock
@@ -33,6 +44,11 @@ class Connection:
       self._onMessage(sock.recv())
 
   def authenticate(self, token):
+    """
+    authenticate the client.
+
+    token: the token field from the decoded base64 api token.
+    """
     assert type(token) is six.text_type and len(token) > 0, "token must be a non-empty unicode string"
 
     self._lock.acquire()
@@ -60,6 +76,11 @@ class Connection:
       self._lock.release()
 
   def close(self, error=None):
+    """
+    Close this connection.
+
+    error: the error to raise from all outstanding requests.
+    """
     self._lock.acquire()
     try:
       if self._closed:
@@ -85,7 +106,15 @@ class Connection:
     finally:
       self._lock.release()
 
-  def getRealTimeData(self, request = None):
+  def getRealTimeData(self, request=None):
+    """
+    Gets real-time data from the server.
+
+    request: a dict that may contain a list of channelIds (strings).
+             If channelIds are not given, gets all channels.
+
+    returns TODO
+    """
     if request:
       assert type(request) is dict, "request must be a dict if present"
       if ('channelIds' in request):
@@ -93,10 +122,24 @@ class Connection:
     return self._call('getRealTimeData', request)
 
   def setRealTimeData(self, request):
+    """
+    Sets real-time data on the server.
+
+    request: TODO
+    """
     assert type(request) is dict, "request must be a dict"
     self._call('setRealTimeData', request)
 
-  def getMetadata(self, request):
+  def getMetadata(self, request=None):
+    """
+    Gets metadata from the server.
+
+    request: a dict that may contain a list of channelIds (strings).
+             If channelIds are not given, gets all channels.
+
+    returns a dict mapping from channelId to dicts of min, max, name, and precision.
+            all strings in the return value are unicode
+    """
     if request:
       assert type(request) is dict, "request must be a dict if present"
       if ('channelIds' in request):
@@ -104,6 +147,11 @@ class Connection:
     return self._call('getMetadata', request)
 
   def setMetadata(self, request):
+    """
+    Sets metadata on the server.
+
+    request: TODO
+    """
     assert type(request) is dict, "request must be a dict"
     self._call('setMetadata', request)
 
