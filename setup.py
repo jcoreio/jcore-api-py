@@ -9,6 +9,7 @@ setup(name='jcore_api',
       license='MIT',
       packages=['jcore_api'],
       install_requires=[
+        'six',
         'websocket-client'
       ],
       zip_safe=False)

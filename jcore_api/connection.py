@@ -1,11 +1,12 @@
 import json
 import threading
+import six
 
-CONNECT = u'connect'
-CONNECTED = u'connected'
-FAILED = u'failed'
-METHOD = u'method'
-RESULT = u'result'
+CONNECT = six.u('connect')
+CONNECTED = six.u('connected')
+FAILED = six.u('failed')
+METHOD = six.u('method')
+RESULT = six.u('result')
 
 class Connection:
   def __init__(self, sock, authRequired=True):
@@ -32,7 +33,7 @@ class Connection:
       self._onMessage(sock.recv())
 
   def authenticate(self, token):
-    assert (type(token) is str or type(token) is unicode) and len(token) > 0, "token must be a non-empty unicode"
+    assert type(token) is six.text_type and len(token) > 0, "token must be a non-empty unicode string"
 
     self._lock.acquire()
     try:
@@ -46,7 +47,7 @@ class Connection:
     finally:
       self._lock.release()
 
-    self._send(CONNECT, {u'token': token})
+    self._send(CONNECT, {six.u('token'): token})
 
     self._lock.acquire()
     try:
@@ -146,8 +147,8 @@ class Connection:
 
   def _onMessage(self, event):
     message = json.loads(event)
-    msg = message[u'msg']
-    assert type(msg) is unicode and len(msg) > 0, "msg must be a non-empty unicode"
+    msg = message[six.u('msg')]
+    assert type(msg) is six.text_type and len(msg) > 0, "msg must be a non-empty unicode string"
 
     self._lock.acquire()
     try:
@@ -163,25 +164,25 @@ class Connection:
 
       elif msg == FAILED:
         errMsg = "authentication failed" if self._authenticating else "unexpected auth failed message"
-        protocolError = _fromProtocolError(message[u'error'])
+        protocolError = _fromProtocolError(message[six.u('error')])
         self._authenticating = False
         self._authenticated = False
         self._autherror = RuntimeError(errMsg + (": " + protocolError if protocolError else ""))
         self._authcv.notify_all()
 
       elif msg == RESULT:
-        id = message[u'id']
-        assert type(id) is unicode and len(id) > 0, "id must be a non-empty unicode"
+        id = message[six.u('id')]
+        assert type(id) is six.text_type and len(id) > 0, "id must be a non-empty unicode string"
 
         methodInfo = self._methodCalls[id]
         del self._methodCalls[id]
         if not methodInfo:
           raise RuntimeError("method call not found: " + id)
 
-        if u'error' in message:
-          methodInfo['error'] = _fromProtocolError(message[u'error'])
+        if six.u('error') in message:
+          methodInfo['error'] = _fromProtocolError(message[six.u('error')])
         else:
-          methodInfo['result'] = message[u'result']
+          methodInfo['result'] = message[six.u('result')]
         methodInfo['cv'].notify()
 
       else:
