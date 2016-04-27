@@ -2,7 +2,7 @@
 
 Python API for communicating with a jcore.io server.
 
-## Requirements
+## Compatibility
 
 Tested on CPython 2 and 3.
 
