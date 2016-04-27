@@ -8,9 +8,11 @@ from .connection import Connection
 
 def connect(apiToken):
     """
-    Connects to a jcore.io server.
+    Connects to a jcore.io server and authenticates.
 
-    apiToken: a base-64 encoded string representing the token from jcore.io
+    apiToken: an API token from the jcore.io server you wish to connect to.
+
+    returns: an authenticated Connection instance.
     """
     assert type(apiToken) is str or type(apiToken) is six.text_type, 'apiToken must be a base64-encoded string'
     assert len(apiToken) > 0, 'len(apiToken) must be > 0'
