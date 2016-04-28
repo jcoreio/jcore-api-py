@@ -3,6 +3,8 @@ import json
 import threading
 from unittest import TestCase
 
+from jcore_api.protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
+
 if six.PY3:
   from queue import Queue
 else:
@@ -10,7 +12,9 @@ else:
 
 import jcore_api
 
-class TestSock:
+token = six.u("this is a test")
+
+class MockSock:
   def __init__(self):
     self._sentQueue = Queue()
     self._recvQueue = Queue()
@@ -20,22 +24,19 @@ class TestSock:
     self.closed = True
 
   def send(self, message):
-    self._sentQueue.put_nowait(message)
+    self._sentQueue.put_nowait(json.loads(message))
 
   def recv(self):
-    return self._recvQueue.get()
+    return json.dumps(self._recvQueue.get())
 
 class TestAPI(TestCase):
   def test_authenticate(self):
-    sock = TestSock()
+    sock = MockSock()
     conn = jcore_api.Connection(sock)
 
-    token = six.u("this is a test")
-
     def runsock():
-      message = json.loads(sock._sentQueue.get(timeout=1))
-      self.assertEqual(message, {'msg': 'connect', 'token': token})
-      sock._recvQueue.put_nowait(json.dumps({"msg": "connected"}))
+      self.assertEqual(sock._sentQueue.get(timeout=1), {'msg': CONNECT, 'token': token})
+      sock._recvQueue.put_nowait({"msg": CONNECTED})
 
     thread = threading.Thread(target=runsock)
     thread.daemon = True
@@ -47,15 +48,12 @@ class TestAPI(TestCase):
     self.assertTrue(conn._authenticated)
 
   def test_auth_failure(self):
-    sock = TestSock()
+    sock = MockSock()
     conn = jcore_api.Connection(sock)
 
-    token = six.u("this is a test")
-
     def runsock():
-      message = json.loads(sock._sentQueue.get(timeout=1))
-      self.assertEqual(message, {'msg': 'connect', 'token': token})
-      sock._recvQueue.put_nowait(json.dumps({"msg": "failed"}))
+      self.assertEqual(sock._sentQueue.get(timeout=1), {'msg': CONNECT, 'token': token})
+      sock._recvQueue.put_nowait({"msg": FAILED})
 
     thread = threading.Thread(target=runsock)
     thread.daemon = True
@@ -71,13 +69,11 @@ class TestAPI(TestCase):
     self.assertFalse(conn._authenticated)
 
   def test_auth_timeout(self):
-    sock = TestSock()
+    sock = MockSock()
     conn = jcore_api.Connection(sock)
 
-    token = six.u("this is a test")
-
     try:
-      conn.authenticate(token, timeout=1)
+      conn.authenticate(token, timeout=0.1)
       self.fail("authenticate should have timed out")
     except Exception as e:
       self.assertTrue("operation timed out" in e.args[0])
@@ -86,10 +82,8 @@ class TestAPI(TestCase):
     self.assertFalse(conn._authenticated)
 
   def test_auth_while_authenticating_throws(self):
-    sock = TestSock()
+    sock = MockSock()
     conn = jcore_api.Connection(sock)
-
-    token = six.u("this is a test")
 
     conn._authenticating = True
 
@@ -103,10 +97,8 @@ class TestAPI(TestCase):
     self.assertFalse(conn._authenticated)
 
   def test_auth_while_authenticated_throws(self):
-    sock = TestSock()
+    sock = MockSock()
     conn = jcore_api.Connection(sock)
-
-    token = six.u("this is a test")
 
     conn._authenticated = True
 

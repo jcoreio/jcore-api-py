@@ -3,11 +3,7 @@ import threading
 import six
 import time
 
-CONNECT = six.u('connect')
-CONNECTED = six.u('connected')
-FAILED = six.u('failed')
-METHOD = six.u('method')
-RESULT = six.u('result')
+from .protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
 
 class Connection:
   """
