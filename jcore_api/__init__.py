@@ -1,1 +1,1 @@
-from .api import connect
+from .api import connect, Connection

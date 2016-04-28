@@ -1,6 +1,7 @@
 import json
 import threading
 import six
+import time
 
 CONNECT = six.u('connect')
 CONNECTED = six.u('connected')
@@ -43,7 +44,7 @@ class Connection:
     while not self._closed:
       self._onMessage(sock.recv())
 
-  def authenticate(self, token):
+  def authenticate(self, token, timeout=None):
     """
     authenticate the client.
 
@@ -67,8 +68,8 @@ class Connection:
 
     self._lock.acquire()
     try:
-      while not self._authenticated and not self._autherror:
-        self._authcv.wait()
+      while self._authenticating:
+        wait(self._authcv, timeout)
 
       if self._autherror:
         raise self._autherror
@@ -106,7 +107,7 @@ class Connection:
     finally:
       self._lock.release()
 
-  def getRealTimeData(self, request=None):
+  def getRealTimeData(self, request=None, timeout=None):
     """
     Gets real-time data from the server.
 
@@ -119,18 +120,18 @@ class Connection:
       assert type(request) is dict, "request must be a dict if present"
       if ('channelIds' in request):
         assert type(request['channelIds']) is list, "channelIds must be a list if present"
-    return self._call('getRealTimeData', request)
+    return self._call('getRealTimeData', [request] if request else [], timeout)
 
-  def setRealTimeData(self, request):
+  def setRealTimeData(self, request, timeout=None):
     """
     Sets real-time data on the server.
 
     request: TODO
     """
     assert type(request) is dict, "request must be a dict"
-    self._call('setRealTimeData', request)
+    self._call('setRealTimeData', [request], timeout)
 
-  def getMetadata(self, request=None):
+  def getMetadata(self, request=None, timeout=None):
     """
     Gets metadata from the server.
 
@@ -144,18 +145,18 @@ class Connection:
       assert type(request) is dict, "request must be a dict if present"
       if ('channelIds' in request):
         assert type(request['channelIds']) is list, "channelIds must be a list if present"
-    return self._call('getMetadata', request)
+    return self._call('getMetadata', [request] if request else [], timeout)
 
-  def setMetadata(self, request):
+  def setMetadata(self, request, timeout=None):
     """
     Sets metadata on the server.
 
     request: TODO
     """
     assert type(request) is dict, "request must be a dict"
-    self._call('setMetadata', request)
+    self._call('setMetadata', [request], timeout)
 
-  def _call(self, method, *params):
+  def _call(self, method, params, timeout=None):
     assert type(method) is str and len(method) > 0, "method must be a non-empty str"
 
     methodInfo = None
@@ -178,7 +179,7 @@ class Connection:
     self._lock.acquire()
     try:
       while not 'result' in methodInfo and not 'error' in methodInfo:
-        methodInfo['cv'].wait()
+        wait(methodInfo['cv'], timeout)
     finally:
       self._lock.release()
 
@@ -212,7 +213,7 @@ class Connection:
 
       elif msg == FAILED:
         errMsg = "authentication failed" if self._authenticating else "unexpected auth failed message"
-        protocolError = _fromProtocolError(message[six.u('error')])
+        protocolError = _fromProtocolError(message[six.u('error')]) if six.u('error') in message else None
         self._authenticating = False
         self._authenticated = False
         self._autherror = RuntimeError(errMsg + (": " + protocolError if protocolError else ""))
@@ -229,8 +230,10 @@ class Connection:
 
         if six.u('error') in message:
           methodInfo['error'] = _fromProtocolError(message[six.u('error')])
-        else:
+        elif six.u('result') in message:
           methodInfo['result'] = message[six.u('result')]
+        else:
+          methodInfo['error'] = "message is missing result: " + str(message)
         methodInfo['cv'].notify()
 
       else:
@@ -253,6 +256,12 @@ class Connection:
         raise RuntimeError("not authenticated")
     finally:
       self._lock.release()
+
+def wait(cv, timeout):
+  startTime = time.time()
+  cv.wait(timeout)
+  if timeout and time.time() - startTime >= timeout:
+    raise RuntimeError('operation timed out')
 
 def _fromProtocolError(error):
   errMsg = None

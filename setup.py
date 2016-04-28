@@ -12,4 +12,6 @@ setup(name='jcore_api',
         'six',
         'websocket-client'
       ],
+      test_suite='nose2.collector.collector',
+      tests_require=['nose2'],
       zip_safe=False)
