@@ -1,30 +1,32 @@
-import websocket
-import six
 import json
 from base64 import b64decode
+
+import six
+import websocket
 
 from ._api_common import LOCAL_SOCKET_PATH
 from ._connection import Connection
 
-def connect(apiToken):
+
+def connect(api_token):
     """
     Connects to a jcore.io server and authenticates.
 
-    apiToken: an API token from the jcore.io server you wish to connect to.
+    api_token: an API token from the jcore.io server you wish to connect to.
 
     returns: an authenticated Connection instance.
     """
-    assert type(apiToken) is str or type(apiToken) is six.text_type, 'apiToken must be a base64-encoded string'
-    assert len(apiToken) > 0, 'len(apiToken) must be > 0'
+    assert isinstance(api_token, six.string_types) and len(api_token) > 0, \
+        'api_token must be a nonempty string'
 
-    parsed = json.loads(b64decode(six.b(apiToken)).decode('utf8'))
-    assert type(parsed) is dict, 'decoded apiToken must be a dict'
+    parsed = json.loads(b64decode(six.b(api_token)).decode('utf8'))
+    assert isinstance(parsed, dict), 'decoded api_token must be a dict'
 
     url, token = parsed[u'url'], parsed[u'token']
-    assert type(url) is six.text_type, 'decoded url must be a unicode string'
-    assert len(url) > 0, "len(<decoded apiToken>['url']) must be > 0"
-    assert type(token) is six.text_type, 'decoded token must be a unicode string'
-    assert len(token) > 0, "len(<decoded apiToken>['token']) must be > 0"
+    assert isinstance(url, six.string_types) and len(
+        url) > 0, 'decoded url must be a nonempty string'
+    assert isinstance(token, six.string_types) and len(
+        token) > 0, 'decoded token must be a nonempty string'
 
     sock = websocket.create_connection(url)
 

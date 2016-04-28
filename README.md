@@ -21,22 +21,22 @@ token = "eyJ1cmwiOiJ3czovL2xvY2FsaG9zdDozMDMwL2pjb3JlLWFwaSIsInRva2VuIjoiRWxsOGp
 
 jcore = connect(token)
 
-print(jcore.getMetadata())
+print(jcore.get_metadata())
 ```
 
 ## Reference
 
-### connect(apiToken)
+### connect(api_token)
 
 Connects to a jcore.io server and authenticates.
 
-apiToken: an API token from the jcore.io server you wish to connect to.
+api_token: an API token from the jcore.io server you wish to connect to.
 
 returns: an authenticated Connection instance.
 
 ### Connection
 
-#### getRealTimeData(request)
+#### get_real_time_data(request)
 
 Gets real-time data from the server.
 
@@ -45,13 +45,13 @@ request: a dict that may contain a list of channelIds (strings).
 
 returns TODO
 
-#### setRealTimeData(request)
+#### set_real_time_data(request)
 
 Sets real-time data on the server.
 
 request: TODO
 
-#### getMetadata(request)
+#### get_metadata(request)
 
 Gets metadata from the server.
 
@@ -61,7 +61,7 @@ request: a dict that may contain a list of channelIds (strings).
 returns a dict mapping from channelId to dicts of min, max, name, and precision.
         all strings in the return value are unicode
 
-#### setMetadata(request)
+#### set_metadata(request)
 
 Sets metadata on the server.
 
