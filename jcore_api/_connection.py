@@ -25,7 +25,7 @@ class Connection:
                 If so, methods will throw an error if the client is not authenticated.
                 default is True
   """
-  def __init__(self, sock, authRequired=True, onUnexpectedException=defaultOnUnexpectedException):
+  def __init__(self, sock, authRequired=True, onUnexpectedException=defaultOnUnexpectedException, defaultTimeout=None):
     self._lock = threading.RLock()
     self._sock = sock
     self._authRequired = authRequired
@@ -35,6 +35,7 @@ class Connection:
     self._authenticated = False
     self._autherror = None
     self._authcv = threading.Condition(self._lock)
+    self._defaultTimeout = defaultTimeout
 
     self._curMethodId = 0
     self._methodCalls = {}
@@ -56,6 +57,9 @@ class Connection:
     token: the token field from the decoded base64 api token.
     """
     assert type(token) is six.text_type and len(token) > 0, "token must be a non-empty unicode string"
+
+    if timeout is None:
+      timeout = self._defaultTimeout
 
     self._lock.acquire()
     try:
@@ -94,10 +98,10 @@ class Connection:
         return
 
       if self._authenticating:
-        self._autherror = JCoreAPIAuthException("connection closed before auth completed", error)
+        self._autherror = JCoreAPIConnectionClosedException("connection closed before auth completed", error)
         self._authcv.notify_all()
 
-      for id, methodInfo in self._methodCalls:
+      for methodInfo in six.itervalues(self._methodCalls):
         methodInfo['error'] = JCoreAPIConnectionClosedException("connection closed", error)
         methodInfo['cv'].notify()
 
@@ -164,6 +168,9 @@ class Connection:
 
   def _call(self, method, params, timeout=None):
     assert type(method) is str and len(method) > 0, "method must be a non-empty str"
+
+    if timeout is None:
+      timeout = self._defaultTimeout
 
     methodInfo = None
 
@@ -238,14 +245,14 @@ class Connection:
           self._authcv.notify_all()
 
         elif msg == RESULT:
-          id = message[six.u('id')]
-          assert type(id) is six.text_type and len(id) > 0, "id must be a non-empty unicode string"
+          _id = message[six.u('id')]
+          assert type(_id) is six.text_type and len(_id) > 0, "id must be a non-empty unicode string"
 
-          if not id in self._methodCalls:
-            raise JCoreAPIUnexpectedException("method call not found: " + id, message)
+          if not _id in self._methodCalls:
+            raise JCoreAPIUnexpectedException("method call not found: " + _id, message)
             
-          methodInfo = self._methodCalls[id]
-          del self._methodCalls[id]
+          methodInfo = self._methodCalls[_id]
+          del self._methodCalls[_id]
 
           if six.u('error') in message:
             methodInfo['error'] = JCoreAPIServerException(_fromProtocolError(message[six.u('error')]), message)
