@@ -30,7 +30,13 @@ class JCoreAPIAuthException(JCoreAPIException):
 
 class JCoreAPIUnexpectedException(JCoreAPIException):
   """
-  Will be raised if an unexpected exception is raised or an invalid message is received
+  Will be raised if an unexpected exception is raised or unexpected message is received
   on the receive thread.
+  """
+  pass
+
+class JCoreAPIInvalidResponseException(JCoreAPIException):
+  """
+  Will be raised if an invalid response is received by the JCore API.
   """
   pass

@@ -2,6 +2,7 @@ import six
 import json
 import threading
 import traceback
+import time
 from unittest import TestCase
 
 if six.PY3:
@@ -11,10 +12,14 @@ else:
 
 from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
 import jcore_api
-from jcore_api._exceptions import JCoreAPIAuthException, JCoreAPITimeoutException, \
-                                  JCoreAPIConnectionClosedException
+from jcore_api.exceptions import JCoreAPIAuthException, JCoreAPITimeoutException, \
+                                 JCoreAPIConnectionClosedException, JCoreAPIServerException, \
+                                 JCoreAPIInvalidResponseException
 
 token = six.u("this is a test")
+
+def swallowException(exc_info):
+  pass
 
 class MockSock:
   def __init__(self):
@@ -83,7 +88,7 @@ class TestAPI(TestCase):
     self.assertFalse(conn._authenticating)
     self.assertFalse(conn._authenticated)
 
-  def test_auth_while_authenticating_throws(self):
+  def test_auth_while_authenticating(self):
     sock = MockSock()
     conn = jcore_api.Connection(sock)
 
@@ -98,7 +103,7 @@ class TestAPI(TestCase):
     self.assertTrue(conn._authenticating)
     self.assertFalse(conn._authenticated)
 
-  def test_auth_while_authenticated_throws(self):
+  def test_auth_while_authenticated(self):
     sock = MockSock()
     conn = jcore_api.Connection(sock)
 
@@ -135,6 +140,55 @@ class TestAPI(TestCase):
     self.assertEqual(conn.getMetadata(timeout=1), result1)
     self.assertEqual(conn.getMetadata(timeout=1), result2)
 
+  def test_call_error(self):
+    sock = MockSock()
+    conn = jcore_api.Connection(sock)
+
+    conn._authenticated = True
+
+    def runsock():
+      self.assertEqual(sock._sentQueue.get(timeout=1), {'msg': METHOD, 'id': '0',  'method': 'getMetadata', 'params': []})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '0', 'error': 'test_call_error'})
+
+    thread = threading.Thread(target=runsock)
+    thread.daemon = True
+    thread.start()
+
+    try:
+      conn.getMetadata(timeout=1)
+      self.fail("getMetadata should have raised an exception")
+    except JCoreAPIServerException as e:
+      self.assertTrue('test_call_error' in e.args[0])
+      pass
+
+  def test_call_invalid_responses(self):
+    sock = MockSock()
+    conn = jcore_api.Connection(sock, onUnexpectedException=swallowException)
+
+    conn._authenticated = True
+
+    result1 = {'hello': 'world'}
+
+    def runsock():
+      self.assertEqual(sock._sentQueue.get(timeout=1), {'msg': METHOD, 'id': '0',  'method': 'getMetadata', 'params': []})
+      sock._recvQueue.put_nowait({'id': '0', 'result': result1})
+      sock._recvQueue.put_nowait({"msg": None, 'id': '0', 'result': result1})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'result': result1})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': None, 'result': result1})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '0'})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '0', 'result': None})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '1', 'result': result1})
+
+    thread = threading.Thread(target=runsock)
+    thread.daemon = True
+    thread.start()
+
+    try:
+      conn.getMetadata(timeout=1)
+      self.fail("getMetadata should have raised exception")
+    except JCoreAPIInvalidResponseException:
+      pass
+
   def test_call_unauthenticated(self):
     sock = MockSock()
     conn = jcore_api.Connection(sock)
@@ -142,7 +196,7 @@ class TestAPI(TestCase):
     try:
       conn.getMetadata(timeout=1)
       self.fail("getMetadata should have raised exception")
-    except JCoreAPIAuthException as e:
+    except JCoreAPIAuthException:
       pass
   
   def test_call_closed(self):
@@ -159,7 +213,7 @@ class TestAPI(TestCase):
 
   def test_call_timeout(self):
     sock = MockSock()
-    conn = jcore_api.Connection(sock)
+    conn = jcore_api.Connection(sock, onUnexpectedException=swallowException)
 
     conn._authenticated = True
 
@@ -205,8 +259,12 @@ class TestAPI(TestCase):
     thread.daemon = True
     thread.start()
 
+    # wait for authenticate to begin
+    # since it's a blocking call, I'm not sure how exactly to wait for it to begin
+    time.sleep(0.1)
+
     conn.close()
-    thread.join(timeout=1)
+    thread.join(timeout=2)
 
     self.assertTrue(conn._closed)
     self.assertTrue(sock._closed)
@@ -233,8 +291,12 @@ class TestAPI(TestCase):
     thread.daemon = True
     thread.start()
 
+    # wait for getMetadata to begin
+    # since it's a blocking call, I'm not sure how exactly to wait for it to begin
+    time.sleep(0.1)
+
     conn.close()
-    thread.join(timeout=1)
+    thread.join(timeout=2)
 
     self.assertTrue(conn._closed)
     self.assertTrue(sock._closed)

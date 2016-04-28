@@ -7,11 +7,25 @@ import traceback
 import sys
 
 from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
-from ._exceptions import JCoreAPITimeoutException, JCoreAPIAuthException, JCoreAPIConnectionClosedException, \
-                         JCoreAPIUnexpectedException, JCoreAPIServerException
+from .exceptions import JCoreAPIException, JCoreAPITimeoutException, JCoreAPIAuthException, \
+                        JCoreAPIConnectionClosedException, JCoreAPIUnexpectedException, \
+                        JCoreAPIServerException, JCoreAPIInvalidResponseException
 
-def defaultOnUnexpectedException(exc_info):
+def _defaultOnUnexpectedException(exc_info):
   print(*traceback.format_exception(*exc_info), file=sys.stderr)
+
+def _wait(cv, timeout):
+  startTime = time.time()
+  cv.wait(timeout)
+  if timeout and time.time() - startTime >= timeout:
+    raise JCoreAPITimeoutException('operation timed out')
+
+def _fromProtocolError(error):
+  if error:
+    if type(error) is six.text_type:
+      return error
+    if type(error) is dict:
+      return error[six.u('error')] if six.u('error') in error else error
 
 class Connection:
   """
@@ -25,7 +39,7 @@ class Connection:
                 If so, methods will throw an error if the client is not authenticated.
                 default is True
   """
-  def __init__(self, sock, authRequired=True, onUnexpectedException=defaultOnUnexpectedException, defaultTimeout=None):
+  def __init__(self, sock, authRequired=True, onUnexpectedException=_defaultOnUnexpectedException, defaultTimeout=None):
     self._lock = threading.RLock()
     self._sock = sock
     self._authRequired = authRequired
@@ -78,7 +92,7 @@ class Connection:
     self._lock.acquire()
     try:
       while self._authenticating:
-        wait(self._authcv, timeout)
+        _wait(self._authcv, timeout)
 
       if self._autherror:
         raise self._autherror
@@ -193,7 +207,7 @@ class Connection:
     self._lock.acquire()
     try:
       while not 'result' in methodInfo and not 'error' in methodInfo:
-        wait(methodInfo['cv'], timeout)
+        _wait(methodInfo['cv'], timeout)
     finally:
       self._lock.release()
 
@@ -219,10 +233,11 @@ class Connection:
     try:
       message = json.loads(event)
       if not six.u('msg') in message:
-        raise JCoreAPIUnexpectedException("msg field is missing", message)
+        raise JCoreAPIInvalidResponseException("msg field is missing", message)
 
       msg = message[six.u('msg')]
-      assert type(msg) is six.text_type and len(msg) > 0, "msg must be a non-empty unicode string"
+      if not (type(msg) is six.text_type and len(msg) > 0):
+        raise JCoreAPIInvalidResponseException("msg must be a non-empty unicode string", message)
 
       self._lock.acquire()
       try:
@@ -245,8 +260,11 @@ class Connection:
           self._authcv.notify_all()
 
         elif msg == RESULT:
+          if not six.u('id') in message:
+            raise JCoreAPIInvalidResponseException("id field is missing", message)
           _id = message[six.u('id')]
-          assert type(_id) is six.text_type and len(_id) > 0, "id must be a non-empty unicode string"
+          if not (type(_id) is six.text_type and len(_id) > 0):
+            raise JCoreAPIInvalidResponseException("id must be a non-empty unicode string", message)
 
           if not _id in self._methodCalls:
             raise JCoreAPIUnexpectedException("method call not found: " + _id, message)
@@ -259,14 +277,14 @@ class Connection:
           elif six.u('result') in message:
             methodInfo['result'] = message[six.u('result')]
           else:
-            methodInfo['error'] = JCoreAPIServerException("message is missing result: " + str(message), message)
+            methodInfo['error'] = JCoreAPIInvalidResponseException("message is missing result or error", message)
           methodInfo['cv'].notify()
 
         else:
-          raise JCoreAPIUnexpectedException("unexpected message: " + msg, message)
+          raise JCoreAPIInvalidResponseException("unknown message type: " + msg, message)
       finally:
         self._lock.release()
-    except JCoreAPIUnexpectedException as e:
+    except JCoreAPIException as e:
       try:
         self._onUnexpectedException(sys.exc_info())
       except Exception as e:
@@ -292,15 +310,3 @@ class Connection:
         raise JCoreAPIAuthException("not authenticated")
     finally:
       self._lock.release()
-
-def wait(cv, timeout):
-  startTime = time.time()
-  cv.wait(timeout)
-  if timeout and time.time() - startTime >= timeout:
-    raise JCoreAPITimeoutException('operation timed out')
-
-def _fromProtocolError(error):
-  errMsg = None
-  if error:
-    errMsg = error['error'] if 'error' in error else error
-  return errMsg if ((type(errMsg) is str or type(errMsg) is unicode) and len(errMsg)) else None
