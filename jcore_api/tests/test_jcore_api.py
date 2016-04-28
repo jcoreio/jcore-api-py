@@ -160,6 +160,8 @@ class TestAPI(TestCase):
     except JCoreAPIServerException as e:
       self.assertTrue('test_call_error' in e.args[0])
       pass
+    finally:
+      thread.join(timeout=3)
 
   def test_call_invalid_responses(self):
     sock = MockSock()
@@ -178,6 +180,7 @@ class TestAPI(TestCase):
       sock._recvQueue.put_nowait({"msg": RESULT, 'id': '0'})
       sock._recvQueue.put_nowait({"msg": RESULT, 'id': '0', 'result': None})
       sock._recvQueue.put_nowait({"msg": RESULT, 'id': '1', 'result': result1})
+      sock._recvQueue.put_nowait({"msg": "wtf is this?", 'id': '0', 'result': result1})
 
     thread = threading.Thread(target=runsock)
     thread.daemon = True
@@ -188,6 +191,8 @@ class TestAPI(TestCase):
       self.fail("getMetadata should have raised exception")
     except JCoreAPIInvalidResponseException:
       pass
+    finally:
+      thread.join(timeout=3)
 
   def test_call_unauthenticated(self):
     sock = MockSock()
@@ -198,7 +203,7 @@ class TestAPI(TestCase):
       self.fail("getMetadata should have raised exception")
     except JCoreAPIAuthException:
       pass
-  
+
   def test_call_closed(self):
     sock = MockSock()
     conn = jcore_api.Connection(sock)
