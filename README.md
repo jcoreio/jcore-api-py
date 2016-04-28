@@ -4,7 +4,7 @@ Python API for communicating with a jcore.io server.
 
 ## Compatibility
 
-Tested on CPython 2 and 3.
+Tested on CPython 2.7.11 and 3.5.1.
 
 ## Installation
 
