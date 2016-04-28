@@ -1,9 +1,17 @@
+from __future__ import print_function
 import json
 import threading
 import six
 import time
+import traceback
+import sys
 
-from .protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
+from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
+from ._exceptions import JCoreAPITimeoutException, JCoreAPIAuthException, JCoreAPIConnectionClosedException, \
+                         JCoreAPIUnexpectedException, JCoreAPIServerException
+
+def defaultOnUnexpectedException(exc_info):
+  print(*traceback.format_exception(*exc_info), file=sys.stderr)
 
 class Connection:
   """
@@ -17,10 +25,11 @@ class Connection:
                 If so, methods will throw an error if the client is not authenticated.
                 default is True
   """
-  def __init__(self, sock, authRequired=True):
+  def __init__(self, sock, authRequired=True, onUnexpectedException=defaultOnUnexpectedException):
     self._lock = threading.RLock()
     self._sock = sock
     self._authRequired = authRequired
+    self._onUnexpectedException = onUnexpectedException
     self._closed = False
     self._authenticating = False
     self._authenticated = False
@@ -51,9 +60,9 @@ class Connection:
     self._lock.acquire()
     try:
       if self._authenticated:
-        raise RuntimeError("already authenticated")
+        raise JCoreAPIAuthException("already authenticated")
       if self._authenticating:
-        raise RuntimeError("authentication already in progress")
+        raise JCoreAPIAuthException("authentication already in progress")
 
       self._authenticating = True
       self._autherror = None
@@ -85,11 +94,11 @@ class Connection:
         return
 
       if self._authenticating:
-        self._autherror = error or RuntimeError("connection closed before auth completed")
+        self._autherror = JCoreAPIAuthException("connection closed before auth completed", error)
         self._authcv.notify_all()
 
       for id, methodInfo in self._methodCalls:
-        methodInfo['error'] = error or RuntimeError("connection closed")
+        methodInfo['error'] = JCoreAPIConnectionClosedException("connection closed", error)
         methodInfo['cv'].notify()
 
       self._methodCalls.clear()
@@ -161,14 +170,15 @@ class Connection:
     self._lock.acquire()
     try:
       self._requireAuth()
-      id = str(++self._curMethodId)
+      _id = str(self._curMethodId)
+      self._curMethodId += 1
       methodInfo = {'cv': threading.Condition(self._lock)}
-      self._methodCalls[id] = methodInfo
+      self._methodCalls[_id] = methodInfo
     finally:
       self._lock.release()
 
     self._send(METHOD, {
-      'id': id,
+      'id': _id,
       'method': method,
       'params': params 
     })
@@ -185,73 +195,94 @@ class Connection:
     return methodInfo['result']
 
   def _send(self, messageName, message):
-    message['msg'] = messageName
-    sock = self._sock;
-    if not sock:
-      raise RuntimeError("connection is already closed")
-    sock.send(json.dumps(message))
-
-  def _onMessage(self, event):
-    message = json.loads(event)
-    msg = message[six.u('msg')]
-    assert type(msg) is six.text_type and len(msg) > 0, "msg must be a non-empty unicode string"
+    sock = None
 
     self._lock.acquire()
     try:
-      if self._closed:
-        return
-
-      if msg == CONNECTED:
-        if not self._authenticating:
-          raise RuntimeError("unexpected connected message")
-        self._authenticating = False
-        self._authenticated = True
-        self._authcv.notify_all()
-
-      elif msg == FAILED:
-        errMsg = "authentication failed" if self._authenticating else "unexpected auth failed message"
-        protocolError = _fromProtocolError(message[six.u('error')]) if six.u('error') in message else None
-        self._authenticating = False
-        self._authenticated = False
-        self._autherror = RuntimeError(errMsg + (": " + protocolError if protocolError else ""))
-        self._authcv.notify_all()
-
-      elif msg == RESULT:
-        id = message[six.u('id')]
-        assert type(id) is six.text_type and len(id) > 0, "id must be a non-empty unicode string"
-
-        if not id in self._methodCalls:
-          raise RuntimeError("method call not found: " + id)
-          
-        methodInfo = self._methodCalls[id]
-        del self._methodCalls[id]
-
-        if six.u('error') in message:
-          methodInfo['error'] = _fromProtocolError(message[six.u('error')])
-        elif six.u('result') in message:
-          methodInfo['result'] = message[six.u('result')]
-        else:
-          methodInfo['error'] = "message is missing result: " + str(message)
-        methodInfo['cv'].notify()
-
-      else:
-        raise RuntimeError("unexpected message: " + msg)
+      sock = self._sock;
+      if not sock or self._closed:
+        raise JCoreAPIConnectionClosedException("connection closed")
     finally:
       self._lock.release()
 
+    message['msg'] = messageName
+    sock.send(json.dumps(message))
+
+  def _onMessage(self, event):
+    try:
+      message = json.loads(event)
+      if not six.u('msg') in message:
+        raise JCoreAPIUnexpectedException("msg field is missing", message)
+
+      msg = message[six.u('msg')]
+      assert type(msg) is six.text_type and len(msg) > 0, "msg must be a non-empty unicode string"
+
+      self._lock.acquire()
+      try:
+        if self._closed:
+          return
+
+        if msg == CONNECTED:
+          if not self._authenticating:
+            raise JCoreAPIUnexpectedException("unexpected connected message", message)
+          self._authenticating = False
+          self._authenticated = True
+          self._authcv.notify_all()
+
+        elif msg == FAILED:
+          errMsg = "authentication failed" if self._authenticating else "unexpected auth failed message"
+          protocolError = _fromProtocolError(message[six.u('error')]) if six.u('error') in message else None
+          self._authenticating = False
+          self._authenticated = False
+          self._autherror = JCoreAPIAuthException(errMsg + (": " + protocolError if protocolError else ""), message)
+          self._authcv.notify_all()
+
+        elif msg == RESULT:
+          id = message[six.u('id')]
+          assert type(id) is six.text_type and len(id) > 0, "id must be a non-empty unicode string"
+
+          if not id in self._methodCalls:
+            raise JCoreAPIUnexpectedException("method call not found: " + id, message)
+            
+          methodInfo = self._methodCalls[id]
+          del self._methodCalls[id]
+
+          if six.u('error') in message:
+            methodInfo['error'] = JCoreAPIServerException(_fromProtocolError(message[six.u('error')]), message)
+          elif six.u('result') in message:
+            methodInfo['result'] = message[six.u('result')]
+          else:
+            methodInfo['error'] = JCoreAPIServerException("message is missing result: " + str(message), message)
+          methodInfo['cv'].notify()
+
+        else:
+          raise JCoreAPIUnexpectedException("unexpected message: " + msg, message)
+      finally:
+        self._lock.release()
+    except JCoreAPIUnexpectedException as e:
+      try:
+        self._onUnexpectedException(sys.exc_info())
+      except Exception as e:
+        traceback.print_exc()
+    except Exception as e:
+      try:
+        self._onUnexpectedException((JCoreAPIUnexpectedException, JCoreAPIUnexpectedException("unexpected other exception", e), sys.exc_info()[2]))
+      except Exception as e:
+        traceback.print_exc()
+
   def _onClose(self, event):
     if not self._closed:
-      self.close(RuntimeError("connection closed: %(code), %(reason)" % event))
+      self.close(JCoreAPIConnectionClosedException("connection closed: %(code), %(reason)" % event))
 
   def _requireAuth(self):
     self._lock.acquire()
     try:
       if self._closed:
-        raise RuntimeError("connection is already closed")
+        raise JCoreAPIConnectionClosedException("connection is already closed")
       if self._authenticating:
-        raise RuntimeError("authentication has not finished yet")
+        raise JCoreAPIAuthException("authentication has not finished yet")
       if self._authRequired and not self._authenticated:
-        raise RuntimeError("not authenticated")
+        raise JCoreAPIAuthException("not authenticated")
     finally:
       self._lock.release()
 
@@ -259,7 +290,7 @@ def wait(cv, timeout):
   startTime = time.time()
   cv.wait(timeout)
   if timeout and time.time() - startTime >= timeout:
-    raise RuntimeError('operation timed out')
+    raise JCoreAPITimeoutException('operation timed out')
 
 def _fromProtocolError(error):
   errMsg = None

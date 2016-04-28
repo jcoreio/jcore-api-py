@@ -3,8 +3,8 @@ import six
 import json
 from base64 import b64decode
 
-from .api_common import LOCAL_SOCKET_PATH
-from .connection import Connection
+from ._api_common import LOCAL_SOCKET_PATH
+from ._connection import Connection
 
 def connect(apiToken):
     """

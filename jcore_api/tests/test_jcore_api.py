@@ -3,13 +3,12 @@ import json
 import threading
 from unittest import TestCase
 
-from jcore_api.protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
-
 if six.PY3:
   from queue import Queue
 else:
   from Queue import Queue
 
+from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
 import jcore_api
 
 token = six.u("this is a test")
@@ -117,17 +116,21 @@ class TestAPI(TestCase):
 
     conn._authenticated = True
 
-    result = {'hello': 'world'}
+    result1 = {'hello': 'world'}
+    result2 = {'cats': 'dogs'}
 
     def runsock():
       self.assertEqual(sock._sentQueue.get(timeout=1), {'msg': METHOD, 'id': '0',  'method': 'getMetadata', 'params': []})
-      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '0', 'result': result})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '0', 'result': result1})
+      self.assertEqual(sock._sentQueue.get(timeout=1), {'msg': METHOD, 'id': '1',  'method': 'getMetadata', 'params': []})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '1', 'result': result2})
 
     thread = threading.Thread(target=runsock)
     thread.daemon = True
     thread.start()
 
-    self.assertEqual(conn.getMetadata(timeout=1), result)
+    self.assertEqual(conn.getMetadata(timeout=1), result1)
+    self.assertEqual(conn.getMetadata(timeout=1), result2)
   
   def test_call_timeout(self):
     sock = MockSock()
@@ -149,4 +152,4 @@ class TestAPI(TestCase):
       self.fail("getMetadata should have raised exception")
     except Exception as e:
       self.assertTrue('operation timed out' in e.args[0])
-    
+
