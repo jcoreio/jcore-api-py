@@ -74,6 +74,7 @@ class Connection:
       if self._autherror:
         raise self._autherror
     finally:
+      self._authenticating = False
       self._lock.release()
 
   def close(self, error=None):

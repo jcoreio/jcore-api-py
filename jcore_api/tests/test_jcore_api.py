@@ -69,3 +69,53 @@ class TestAPI(TestCase):
 
     self.assertFalse(conn._authenticating)
     self.assertFalse(conn._authenticated)
+
+  def test_auth_timeout(self):
+    sock = TestSock()
+    conn = jcore_api.Connection(sock)
+
+    token = six.u("this is a test")
+
+    try:
+      conn.authenticate(token, timeout=1)
+      self.fail("authenticate should have timed out")
+    except Exception as e:
+      self.assertTrue("operation timed out" in e.args[0])
+
+    self.assertFalse(conn._authenticating)
+    self.assertFalse(conn._authenticated)
+
+  def test_auth_while_authenticating_throws(self):
+    sock = TestSock()
+    conn = jcore_api.Connection(sock)
+
+    token = six.u("this is a test")
+
+    conn._authenticating = True
+
+    try:
+      conn.authenticate(token, timeout=1)
+      self.fail("authenticate should have raised exception")
+    except Exception as e:
+      self.assertTrue("in progress" in e.args[0])
+
+    self.assertTrue(conn._authenticating)
+    self.assertFalse(conn._authenticated)
+
+  def test_auth_while_authenticated_throws(self):
+    sock = TestSock()
+    conn = jcore_api.Connection(sock)
+
+    token = six.u("this is a test")
+
+    conn._authenticated = True
+
+    try:
+      conn.authenticate(token, timeout=1)
+      self.fail("authenticate should have raised exception")
+    except Exception as e:
+      self.assertTrue("already authenticated" in e.args[0])
+
+    self.assertFalse(conn._authenticating)
+    self.assertTrue(conn._authenticated)
+  
