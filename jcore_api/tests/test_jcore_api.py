@@ -111,3 +111,42 @@ class TestAPI(TestCase):
     self.assertFalse(conn._authenticating)
     self.assertTrue(conn._authenticated)
   
+  def test_call(self):
+    sock = MockSock()
+    conn = jcore_api.Connection(sock)
+
+    conn._authenticated = True
+
+    result = {'hello': 'world'}
+
+    def runsock():
+      self.assertEqual(sock._sentQueue.get(timeout=1), {'msg': METHOD, 'id': '0',  'method': 'getMetadata', 'params': []})
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '0', 'result': result})
+
+    thread = threading.Thread(target=runsock)
+    thread.daemon = True
+    thread.start()
+
+    self.assertEqual(conn.getMetadata(timeout=1), result)
+  
+  def test_call_timeout(self):
+    sock = MockSock()
+    conn = jcore_api.Connection(sock)
+
+    conn._authenticated = True
+
+    result = {'hello': 'world'}
+
+    def runsock():
+      sock._recvQueue.put_nowait({"msg": RESULT, 'id': '1', 'result': result})
+
+    thread = threading.Thread(target=runsock)
+    thread.daemon = True
+    thread.start()
+
+    try:
+      self.assertEqual(conn.getMetadata(timeout=1), result)
+      self.fail("getMetadata should have raised exception")
+    except Exception as e:
+      self.assertTrue('operation timed out' in e.args[0])
+    

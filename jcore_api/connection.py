@@ -220,10 +220,11 @@ class Connection:
         id = message[six.u('id')]
         assert type(id) is six.text_type and len(id) > 0, "id must be a non-empty unicode string"
 
+        if not id in self._methodCalls:
+          raise RuntimeError("method call not found: " + id)
+          
         methodInfo = self._methodCalls[id]
         del self._methodCalls[id]
-        if not methodInfo:
-          raise RuntimeError("method call not found: " + id)
 
         if six.u('error') in message:
           methodInfo['error'] = _fromProtocolError(message[six.u('error')])
