@@ -159,14 +159,14 @@ class Connection:
                     request['channelIds'], list), "channelIds must be a list if present"
         return self._call('get_real_time_data', [request] if request else [], timeout)
 
-    def setrealtimedata(self, request, timeout=None):
+    def set_real_time_data(self, request, timeout=None):
         """
         Sets real-time data on the server.
 
         request: TODO
         """
         assert isinstance(request, dict), "request must be a dict"
-        self._call('setrealtimedata', [request], timeout)
+        self._call('set_real_time_data', [request], timeout)
 
     def get_metadata(self, request=None, timeout=None):
         """
@@ -186,14 +186,14 @@ class Connection:
                     request['channelIds'], list), "channelIds must be a list if present"
         return self._call('get_metadata', [request] if request else [], timeout)
 
-    def setmetadata(self, request, timeout=None):
+    def set_metadata(self, request, timeout=None):
         """
         Sets metadata on the server.
 
         request: TODO
         """
         assert isinstance(request, dict), "request must be a dict"
-        self._call('setmetadata', [request], timeout)
+        self._call('set_metadata', [request], timeout)
 
     def _call(self, method, params, timeout=None):
         assert isinstance(method, str) and len(
