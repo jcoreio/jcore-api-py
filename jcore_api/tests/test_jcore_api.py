@@ -11,17 +11,14 @@ if six.PY3:
 else:
     from Queue import Queue
 
-from websocket._exceptions import WebSocketConnectionClosedException
-
 from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
     GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
-import jcore_api
+from jcore_api import JCoreAPIConnection
 from jcore_api.exceptions import JCoreAPIAuthException, JCoreAPITimeoutException, \
     JCoreAPIConnectionClosedException, JCoreAPIServerException, \
     JCoreAPIInvalidResponseException
 
 token = six.u("this is a test")
-
 
 def swallow_exception(exc_info):
     pass
@@ -50,7 +47,7 @@ class TestAPI(TestCase):
 
     def test_authenticate(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         def runsock():
             self.assertEqual(sock.sent_queue.get(timeout=1), {
@@ -68,7 +65,7 @@ class TestAPI(TestCase):
 
     def test_auth_failure(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         def runsock():
             self.assertEqual(sock.sent_queue.get(timeout=1), {
@@ -90,7 +87,7 @@ class TestAPI(TestCase):
 
     def test_auth_timeout(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         try:
             conn.authenticate(token, timeout=0.1)
@@ -103,7 +100,7 @@ class TestAPI(TestCase):
 
     def test_auth_while_authenticating(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn._authenticating = True
 
@@ -118,7 +115,7 @@ class TestAPI(TestCase):
 
     def test_auth_while_authenticated(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn._authenticated = True
 
@@ -133,7 +130,7 @@ class TestAPI(TestCase):
 
     def test_auth_already_closed(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn._closed = True
 
@@ -148,7 +145,7 @@ class TestAPI(TestCase):
 
     def test_auth_connection_closed(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         exception = JCoreAPIConnectionClosedException('test')
 
@@ -173,7 +170,7 @@ class TestAPI(TestCase):
 
     def test_call(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn._authenticated = True
 
@@ -199,7 +196,7 @@ class TestAPI(TestCase):
 
     def test_get_metadata(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn._authenticated = True
 
@@ -233,7 +230,7 @@ class TestAPI(TestCase):
 
     def test_call_error(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn._authenticated = True
 
@@ -258,7 +255,7 @@ class TestAPI(TestCase):
 
     def test_call_invalid_responses(self):
         sock = MockSock()
-        conn = jcore_api.Connection(
+        conn = JCoreAPIConnection(
             sock, on_unexpected_exception=swallow_exception)
 
         conn._authenticated = True
@@ -296,7 +293,7 @@ class TestAPI(TestCase):
 
     def test_call_unauthenticated(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         try:
             conn.get_metadata(timeout=1)
@@ -307,7 +304,7 @@ class TestAPI(TestCase):
 
     def test_call_connection_closed(self):
         sock = MockSock()
-        conn = jcore_api.Connection(
+        conn = JCoreAPIConnection(
             sock, on_unexpected_exception=swallow_exception)
 
         conn._authenticated = True
@@ -333,7 +330,7 @@ class TestAPI(TestCase):
 
     def test_call_already_closed(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn._closed = True
 
@@ -345,7 +342,7 @@ class TestAPI(TestCase):
 
     def test_call_timeout(self):
         sock = MockSock()
-        conn = jcore_api.Connection(
+        conn = JCoreAPIConnection(
             sock, on_unexpected_exception=swallow_exception)
 
         conn._authenticated = True
@@ -368,7 +365,7 @@ class TestAPI(TestCase):
 
     def test_close(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn.close()
 
@@ -377,7 +374,7 @@ class TestAPI(TestCase):
 
     def test_close_during_auth(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         def runauth():
             try:
@@ -409,7 +406,7 @@ class TestAPI(TestCase):
 
     def test_close_during_call(self):
         sock = MockSock()
-        conn = jcore_api.Connection(sock)
+        conn = JCoreAPIConnection(sock)
 
         conn._authenticated = True
 

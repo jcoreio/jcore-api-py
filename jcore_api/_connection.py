@@ -33,7 +33,7 @@ def _from_protocol_error(error):
             return error[six.u('error')] if six.u('error') in error else error
 
 
-class Connection:
+class JCoreAPIConnection:
     """
     A connection a to jcore.io server.
 
@@ -51,6 +51,7 @@ class Connection:
         self._sock = sock
         self._auth_required = auth_required
         self._on_unexpected_exception = on_unexpected_exception
+        self._started = False
         self._closed = False
         self._authenticating = False
         self._authenticated = False
@@ -64,7 +65,6 @@ class Connection:
         self._thread = threading.Thread(
             target=self._run, name="jcore.io Connection")
         self._thread.daemon = True
-        self._thread.start()
 
     def _run(self):
         # store reference because this will be set to None upon close
@@ -239,6 +239,10 @@ class Connection:
 
         self._lock.acquire()
         try:
+            if not self._started:
+                self._started = True
+                self._thread.start()
+
             sock = self._sock
             if not sock or self._closed:
                 raise JCoreAPIConnectionClosedException("connection closed")

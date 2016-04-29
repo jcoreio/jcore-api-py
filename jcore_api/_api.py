@@ -5,7 +5,7 @@ import six
 from ._jcore_web_socket import JCoreWebSocket
 
 from ._api_common import LOCAL_SOCKET_PATH
-from ._connection import Connection
+from ._connection import JCoreAPIConnection
 
 def connect(api_token):
     """
@@ -13,7 +13,7 @@ def connect(api_token):
 
     api_token: an API token from the jcore.io server you wish to connect to.
 
-    returns: an authenticated Connection instance.
+    returns: an authenticated JCoreAPIConnection instance.
     """
     assert isinstance(api_token, six.string_types) and len(api_token) > 0, \
         'api_token must be a nonempty string'
@@ -30,7 +30,7 @@ def connect(api_token):
     sock = JCoreWebSocket()
     sock.connect(url)
 
-    connection = Connection(sock)
+    connection = JCoreAPIConnection(sock)
     connection.authenticate(token)
 
     return connection
