@@ -60,8 +60,9 @@ class JCoreUnixSocket:
 
     def send(self, message):
         totalsent = 0
-        while totalsent < len(message):
-            sent = self._sock.send(message[totalsent:])
+        encoded = encode_message(message)
+        while totalsent < len(encoded):
+            sent = self._sock.send(encoded[totalsent:])
             if sent == 0:
                 self._closed = True
                 raise JCoreAPIConnectionClosedException("socket connection broken")

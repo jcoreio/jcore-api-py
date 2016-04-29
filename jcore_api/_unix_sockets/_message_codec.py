@@ -29,11 +29,10 @@ def encode_message(data):
     pos = 0
     encoded[0] = PREAMBLE
     pos += 1
-    encoded[pos:pos + LENGTH_LEN] = struct.pack(">i", len(data))
+    encoded[pos:pos + LENGTH_LEN] = struct.pack(">I", len(data))
     pos += LENGTH_LEN
     encoded[pos:] = encoded_data
-    return encoded
-
+    return six.binary_type(encoded)
 
 class MessageDecoder:
     """
@@ -79,7 +78,7 @@ class MessageDecoder:
                     src_buffer[src_pos:src_pos + bytes_read]
                 self._length_buf_pos += bytes_read
                 if self._length_buf_pos >= LENGTH_LEN:
-                    message_length = struct.unpack(">i", self._length_buf[0:LENGTH_LEN])[0]
+                    message_length = struct.unpack(">I", self._length_buf[0:LENGTH_LEN])[0]
                     if message_length:
                         self._decode_buffer = bytearray(message_length)
                         self._decode_buffer_pos = 0

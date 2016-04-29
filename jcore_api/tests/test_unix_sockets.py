@@ -41,7 +41,7 @@ def _chunk_bytearray(array, chunk_length):
 
 class MockSock:
     def __init__(self):
-        self.sent = ''
+        self.sent = six.binary_type()
         self.send_q = deque()
         self.recv_q = deque()
         self.closed = False
@@ -179,18 +179,19 @@ class TestUnixSocket(TestCase):
         unixSock = JCoreUnixSocket(sock)
 
         message = _random_string(random.randint(500, 1000))
+        encoded = encode_message(message)
 
         def test_chunk_size(size):
-            sock.sent = ''
+            sock.sent = six.binary_type()
 
             i = 0
-            while i < len(message):
-                sock.queue_send(min(size, len(message) - i))
+            while i < len(encoded):
+                sock.queue_send(min(size, len(encoded) - i))
                 i += size
 
             unixSock.send(message)
 
-            self.assertEqual(message, sock.sent)
+            self.assertEqual(encoded, sock.sent)
 
         test_chunk_size(1)
         test_chunk_size(10)

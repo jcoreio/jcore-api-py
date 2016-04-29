@@ -1,11 +1,13 @@
 import json
 from base64 import b64decode
+import socket
 
 import six
-from ._jcore_web_socket import JCoreWebSocket
 
 from ._api_common import LOCAL_SOCKET_PATH
 from ._connection import JCoreAPIConnection
+from ._jcore_web_socket import JCoreWebSocket
+from ._unix_sockets._jcore_unix_socket import JCoreUnixSocket
 
 def connect(api_token):
     """
@@ -32,5 +34,19 @@ def connect(api_token):
 
     connection = JCoreAPIConnection(sock)
     connection.authenticate(token)
+
+    return connection
+
+def connect_local():
+    """
+    Connects to a jcore.io server on the local machine via a
+    unix socket.
+
+    returns: an JCoreAPIConnection instance.
+    """
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(LOCAL_SOCKET_PATH)
+
+    connection = JCoreAPIConnection(JCoreUnixSocket(sock), auth_required=False)
 
     return connection
