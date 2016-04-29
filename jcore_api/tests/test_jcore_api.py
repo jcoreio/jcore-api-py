@@ -11,6 +11,8 @@ if six.PY3:
 else:
     from Queue import Queue
 
+from websocket._exceptions import WebSocketConnectionClosedException
+
 from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
 import jcore_api
 from jcore_api.exceptions import JCoreAPIAuthException, JCoreAPITimeoutException, \
@@ -37,7 +39,10 @@ class MockSock:
         self.sent_queue.put_nowait(json.loads(message))
 
     def recv(self):
-        return json.dumps(self.recv_queue.get())
+        message = self.recv_queue.get()
+        if isinstance(message, Exception):
+            raise message
+        return json.dumps(message)
 
 
 class TestAPI(TestCase):
@@ -76,8 +81,8 @@ class TestAPI(TestCase):
         try:
             conn.authenticate(token, timeout=3)
             self.fail("authenticate should have raised exception")
-        except Exception as e:
-            self.assertTrue("authentication failed" in e.args[0])
+        except JCoreAPIAuthException as e:
+            pass
 
         self.assertFalse(conn._authenticating)
         self.assertFalse(conn._authenticated)
@@ -89,8 +94,8 @@ class TestAPI(TestCase):
         try:
             conn.authenticate(token, timeout=0.1)
             self.fail("authenticate should have timed out")
-        except Exception as e:
-            self.assertTrue("operation timed out" in e.args[0])
+        except JCoreAPITimeoutException as e:
+            pass
 
         self.assertFalse(conn._authenticating)
         self.assertFalse(conn._authenticated)
@@ -104,10 +109,10 @@ class TestAPI(TestCase):
         try:
             conn.authenticate(token, timeout=1)
             self.fail("authenticate should have raised exception")
-        except Exception as e:
-            self.assertTrue("in progress" in e.args[0])
+        except JCoreAPIAuthException as e:
+            pass
 
-        self.assertTrue(conn._authenticating)
+        self.assertFalse(conn._authenticating)
         self.assertFalse(conn._authenticated)
 
     def test_auth_while_authenticated(self):
@@ -119,11 +124,51 @@ class TestAPI(TestCase):
         try:
             conn.authenticate(token, timeout=1)
             self.fail("authenticate should have raised exception")
-        except Exception as e:
-            self.assertTrue("already authenticated" in e.args[0])
+        except JCoreAPIAuthException as e:
+            pass
 
         self.assertFalse(conn._authenticating)
         self.assertTrue(conn._authenticated)
+
+    def test_auth_already_closed(self):
+        sock = MockSock()
+        conn = jcore_api.Connection(sock)
+
+        conn._closed = True
+
+        try:
+            conn.authenticate(token, timeout=3)
+            self.fail("authenticate should have raised exception")
+        except JCoreAPIConnectionClosedException:
+            pass
+
+        self.assertFalse(conn._authenticating)
+        self.assertFalse(conn._authenticated)
+
+    def test_auth_connection_closed(self):
+        sock = MockSock()
+        conn = jcore_api.Connection(sock)
+
+        exception = WebSocketConnectionClosedException('test')
+
+        def runsock():
+            self.assertEqual(sock.sent_queue.get(timeout=1), {
+                             'msg': CONNECT, 'token': token})
+            sock.recv_queue.put_nowait(exception)
+
+        thread = threading.Thread(target=runsock)
+        thread.daemon = True
+        thread.start()
+
+        try:
+            conn.authenticate(token, timeout=3)
+            self.fail("authenticate should have raised exception")
+        except JCoreAPIConnectionClosedException as e:
+            self.assertIs(exception, e.args[1])
+
+        self.assertFalse(conn._authenticating)
+        self.assertFalse(conn._authenticated)
+        self.assertTrue(conn._closed)
 
     def test_call(self):
         sock = MockSock()
@@ -224,7 +269,7 @@ class TestAPI(TestCase):
         except JCoreAPIAuthException:
             pass
 
-    def test_call_closed(self):
+    def test_call_already_closed(self):
         sock = MockSock()
         conn = jcore_api.Connection(sock)
 

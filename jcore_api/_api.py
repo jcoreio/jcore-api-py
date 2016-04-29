@@ -2,7 +2,7 @@ import json
 from base64 import b64decode
 
 import six
-import websocket
+from websocket import WebSocket
 
 from ._api_common import LOCAL_SOCKET_PATH
 from ._connection import Connection
@@ -27,7 +27,8 @@ def connect(api_token):
     assert isinstance(token, six.string_types) and len(
         token) > 0, 'decoded token must be a nonempty string'
 
-    sock = websocket.create_connection(url)
+    sock = WebSocket()
+    sock.connect(url)
 
     connection = Connection(sock)
     connection.authenticate(token)

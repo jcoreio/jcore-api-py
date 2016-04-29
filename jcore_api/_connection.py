@@ -7,6 +7,8 @@ import sys
 
 import six
 
+from websocket._exceptions import WebSocketConnectionClosedException
+
 from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
 from .exceptions import JCoreAPIException, JCoreAPITimeoutException, JCoreAPIAuthException, \
     JCoreAPIConnectionClosedException, JCoreAPIUnexpectedException, \
@@ -69,7 +71,12 @@ class Connection:
         # store reference because this will be set to None upon close
         sock = self._sock
         while not self._closed:
-            self._on_message(sock.recv())
+            try:
+                message = sock.recv()
+            except WebSocketConnectionClosedException as error:
+                self.close(error, sock_is_closed=True)
+                return
+            self._on_message(message)
 
     def authenticate(self, token, timeout=None):
         """
@@ -93,13 +100,9 @@ class Connection:
 
             self._authenticating = True
             self._autherror = None
-        finally:
-            self._lock.release()
 
-        self._send(CONNECT, {six.u('token'): token})
+            self._send(CONNECT, {six.u('token'): token})
 
-        self._lock.acquire()
-        try:
             while self._authenticating:
                 _wait(self._authcv, timeout)
 
@@ -109,11 +112,13 @@ class Connection:
             self._authenticating = False
             self._lock.release()
 
-    def close(self, error=None):
+    def close(self, error=None, sock_is_closed=False):
         """
         Close this connection.
 
-        error: the error to raise from all outstanding requests.
+        error: the error to raise (wrapped in a JCoreAPIConnectionClosedException) 
+               from all outstanding requests.
+        sock_is_closed: if True, will not redundantly call close() on the socket.
         """
         self._lock.acquire()
         try:
@@ -136,7 +141,8 @@ class Connection:
             self._authenticated = False
             self._closed = True
 
-            self._sock.close()
+            if not sock_is_closed:
+                self._sock.close()
             self._sock = None
 
         finally:
@@ -322,11 +328,6 @@ class Connection:
                     "unexpected other exception", e), sys.exc_info()[2]))
             except Exception as e:
                 traceback.print_exc()
-
-    def _on_close(self, event):
-        if not self._closed:
-            self.close(JCoreAPIConnectionClosedException(
-                "connection closed: %(code)d, %(reason)s" % event))
 
     def _require_auth(self):
         self._lock.acquire()
