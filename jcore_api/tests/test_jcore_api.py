@@ -304,6 +304,33 @@ class TestAPI(TestCase):
         except JCoreAPIAuthException:
             pass
 
+
+    def test_call_connection_closed(self):
+        sock = MockSock()
+        conn = jcore_api.Connection(
+            sock, on_unexpected_exception=swallow_exception)
+
+        conn._authenticated = True
+
+        exception = JCoreAPIConnectionClosedException("test")
+
+        def runsock():
+            sock.recv_queue.put_nowait(exception)
+
+        thread = threading.Thread(target=runsock)
+        thread.daemon = True
+        thread.start()
+
+        try:
+            conn.get_metadata(timeout=1)
+            self.fail("get_metadata should have raised exception")
+        except JCoreAPIConnectionClosedException:
+            pass
+
+        self.assertEqual(conn._closed, True)
+        self.assertEqual(conn._authenticated, False)
+        self.assertEqual(conn._authenticating, False)
+
     def test_call_already_closed(self):
         sock = MockSock()
         conn = jcore_api.Connection(sock)
