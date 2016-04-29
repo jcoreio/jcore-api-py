@@ -15,6 +15,8 @@ else:
 from ..exceptions import JCoreAPIConnectionClosedException
 from ._message_codec import encode_message, MessageDecoder
 
+CHUNK_SIZE = 2048
+
 class JCoreUnixSocket:
     def __init__(self, sock):
         self._sock = sock
@@ -32,7 +34,7 @@ class JCoreUnixSocket:
 
     def _run(self):
         while not self._closed:
-            message = self._sock.recv()
+            message = self._sock.recv(CHUNK_SIZE)
             if not len(message):
                 self._closed = True
                 self._recv_queue.put_nowait(JCoreAPIConnectionClosedException("socket connection broken"))

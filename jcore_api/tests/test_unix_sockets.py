@@ -8,10 +8,8 @@ from unittest import TestCase
 
 import six
 
-if six.PY3:
-    from queue import Queue
-else:
-    from Queue import Queue
+from collections import deque
+from threading import Lock, Condition
 
 from jcore_api._unix_sockets._message_codec import encode_message, MessageDecoder
 from jcore_api._unix_sockets._jcore_unix_socket import JCoreUnixSocket
@@ -43,21 +41,60 @@ def _chunk_bytearray(array, chunk_length):
 
 class MockSock:
     def __init__(self):
-        self.sent_queue = Queue()
-        self.recv_queue = Queue()
+        self.sent = ''
+        self.send_q = deque()
+        self.recv_q = deque()
         self.closed = False
+        self.lock = Lock()
+        self.cond = Condition(self.lock)
 
     def close(self):
+        self.lock.acquire()
         self.closed = True
+        self.lock.release()
+
+    def queue_send(self, num_bytes):
+        self.lock.acquire()
+        try:
+            self.send_q.append(num_bytes)
+            self.cond.notify_all()
+        finally:
+            self.lock.release()
 
     def send(self, message):
-        self.sent_queue.put_nowait(message)
+        self.lock.acquire()
+        try:
+            while not len(self.send_q):
+                self.cond.wait()
+            num_bytes = self.send_q.popleft()
+            if num_bytes < len(message):
+                self.send_q.appendleft(len(message) - num_bytes)
+            sent = min(num_bytes, len(message))
+            self.sent += message[:sent]
+            return sent
+        finally:
+            self.lock.release()
 
-    def recv(self):
-        message = self.recv_queue.get()
-        if isinstance(message, Exception):
-            raise message
-        return message
+    def queue_recv(self, message):
+        self.lock.acquire()
+        try:
+            self.recv_q.append(message)
+            self.cond.notify_all()
+        finally:
+            self.lock.release()
+
+    def recv(self, max_len):
+        self.lock.acquire()
+        try:
+            while not len(self.recv_q):
+                self.cond.wait()
+            message = self.recv_q.popleft()
+            recd = min(max_len, len(message))
+            if (recd < len(message)):
+                self.recv_q.appendleft(message[recd:])
+            return message[:recd]
+        finally:
+            self.lock.release()
 
 class TestMessageCodec(TestCase):
     def test_encode_decode(self):
@@ -124,7 +161,7 @@ class TestUnixSocket(TestCase):
             del actual_messages[:]
 
             for chunk in _chunk_bytearray(all_bytes, size):
-                sock.recv_queue.put_nowait(six.binary_type(chunk))
+                sock.queue_recv(six.binary_type(chunk))
 
             for _ in range(len(expected_messages)):
                 actual_messages.append(unixSock.recv())
@@ -137,4 +174,26 @@ class TestUnixSocket(TestCase):
         test_chunk_size(496)
         test_chunk_size(10000)
 
+    def test_send(self):
+        sock = MockSock()
+        unixSock = JCoreUnixSocket(sock)
 
+        message = _random_string(random.randint(500, 1000))
+
+        def test_chunk_size(size):
+            sock.sent = ''
+
+            i = 0
+            while i < len(message):
+                sock.queue_send(min(size, len(message) - i))
+                i += size
+
+            unixSock.send(message)
+
+            self.assertEqual(message, sock.sent)
+
+        test_chunk_size(1)
+        test_chunk_size(10)
+        test_chunk_size(100)
+        test_chunk_size(496)
+        test_chunk_size(10000)
