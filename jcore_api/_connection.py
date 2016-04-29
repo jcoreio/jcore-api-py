@@ -7,8 +7,6 @@ import sys
 
 import six
 
-from websocket._exceptions import WebSocketConnectionClosedException
-
 from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
     GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
 from .exceptions import JCoreAPIException, JCoreAPITimeoutException, JCoreAPIAuthException, \
@@ -74,7 +72,7 @@ class Connection:
         while not self._closed:
             try:
                 message = sock.recv()
-            except WebSocketConnectionClosedException as error:
+            except JCoreAPIConnectionClosedException as error:
                 self.close(error, sock_is_closed=True)
                 return
             self._on_message(message)
@@ -113,7 +111,7 @@ class Connection:
             self._authenticating = False
             self._lock.release()
 
-    def close(self, error=None, sock_is_closed=False):
+    def close(self, error=JCoreAPIConnectionClosedException('connection closed'), sock_is_closed=False):
         """
         Close this connection.
 
@@ -127,13 +125,11 @@ class Connection:
                 return
 
             if self._authenticating:
-                self._autherror = JCoreAPIConnectionClosedException(
-                    "connection closed before auth completed", error)
+                self._autherror = error
                 self._authcv.notify_all()
 
             for method_info in six.itervalues(self._method_calls):
-                method_info['error'] = JCoreAPIConnectionClosedException(
-                    "connection closed", error)
+                method_info['error'] = error
                 method_info['cv'].notify()
 
             self._method_calls.clear()

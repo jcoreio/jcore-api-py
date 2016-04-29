@@ -150,7 +150,7 @@ class TestAPI(TestCase):
         sock = MockSock()
         conn = jcore_api.Connection(sock)
 
-        exception = WebSocketConnectionClosedException('test')
+        exception = JCoreAPIConnectionClosedException('test')
 
         def runsock():
             self.assertEqual(sock.sent_queue.get(timeout=1), {
@@ -165,7 +165,7 @@ class TestAPI(TestCase):
             conn.authenticate(token, timeout=3)
             self.fail("authenticate should have raised exception")
         except JCoreAPIConnectionClosedException as e:
-            self.assertIs(exception, e.args[1])
+            self.assertIs(exception, e)
 
         self.assertFalse(conn._authenticating)
         self.assertFalse(conn._authenticated)
