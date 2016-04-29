@@ -13,7 +13,8 @@ else:
 
 from websocket._exceptions import WebSocketConnectionClosedException
 
-from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
+from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
+    GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
 import jcore_api
 from jcore_api.exceptions import JCoreAPIAuthException, JCoreAPITimeoutException, \
     JCoreAPIConnectionClosedException, JCoreAPIServerException, \
@@ -181,11 +182,11 @@ class TestAPI(TestCase):
 
         def runsock():
             self.assertEqual(sock.sent_queue.get(timeout=1), {
-                             'msg': METHOD, 'id': '0',    'method': 'get_metadata', 'params': []})
+                             'msg': METHOD, 'id': '0',    'method': GET_METADATA, 'params': []})
             sock.recv_queue.put_nowait(
                 {"msg": RESULT, 'id': '0', 'result': result1})
             self.assertEqual(sock.sent_queue.get(timeout=1), {
-                             'msg': METHOD, 'id': '1',    'method': 'get_metadata', 'params': []})
+                             'msg': METHOD, 'id': '1',    'method': GET_METADATA, 'params': []})
             sock.recv_queue.put_nowait(
                 {"msg": RESULT, 'id': '1', 'result': result2})
 
@@ -196,6 +197,40 @@ class TestAPI(TestCase):
         self.assertEqual(conn.get_metadata(timeout=1), result1)
         self.assertEqual(conn.get_metadata(timeout=1), result2)
 
+    def test_get_metadata(self):
+        sock = MockSock()
+        conn = jcore_api.Connection(sock)
+
+        conn._authenticated = True
+
+        try:
+            conn.get_metadata(timeout=0.01)
+        except JCoreAPITimeoutException:
+            pass
+
+        self.assertEqual(GET_METADATA, sock.sent_queue.get(timeout=1)['method'])
+
+        try:
+            conn.set_metadata({}, timeout=0.01)
+        except JCoreAPITimeoutException:
+            pass
+
+        self.assertEqual(SET_METADATA, sock.sent_queue.get(timeout=1)['method'])
+
+        try:
+            conn.get_real_time_data(timeout=0.01)
+        except JCoreAPITimeoutException:
+            pass
+
+        self.assertEqual(GET_REAL_TIME_DATA, sock.sent_queue.get(timeout=1)['method'])
+
+        try:
+            conn.set_real_time_data({}, timeout=0.01)
+        except JCoreAPITimeoutException:
+            pass
+
+        self.assertEqual(SET_REAL_TIME_DATA, sock.sent_queue.get(timeout=1)['method'])
+
     def test_call_error(self):
         sock = MockSock()
         conn = jcore_api.Connection(sock)
@@ -204,7 +239,7 @@ class TestAPI(TestCase):
 
         def runsock():
             self.assertEqual(sock.sent_queue.get(timeout=1), {
-                             'msg': METHOD, 'id': '0',    'method': 'get_metadata', 'params': []})
+                             'msg': METHOD, 'id': '0',    'method': GET_METADATA, 'params': []})
             sock.recv_queue.put_nowait(
                 {"msg": RESULT, 'id': '0', 'error': 'test_call_error'})
 
@@ -232,7 +267,7 @@ class TestAPI(TestCase):
 
         def runsock():
             self.assertEqual(sock.sent_queue.get(timeout=1), {
-                             'msg': METHOD, 'id': '0',    'method': 'get_metadata', 'params': []})
+                             'msg': METHOD, 'id': '0',    'method': GET_METADATA, 'params': []})
             sock.recv_queue.put_nowait({'id': '0', 'result': result1})
             sock.recv_queue.put_nowait(
                 {"msg": None, 'id': '0', 'result': result1})

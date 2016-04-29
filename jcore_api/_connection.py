@@ -9,7 +9,8 @@ import six
 
 from websocket._exceptions import WebSocketConnectionClosedException
 
-from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT
+from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
+    GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
 from .exceptions import JCoreAPIException, JCoreAPITimeoutException, JCoreAPIAuthException, \
     JCoreAPIConnectionClosedException, JCoreAPIUnexpectedException, \
     JCoreAPIServerException, JCoreAPIInvalidResponseException
@@ -163,7 +164,7 @@ class Connection:
             if 'channelIds' in request:
                 assert isinstance(
                     request['channelIds'], list), "channelIds must be a list if present"
-        return self._call('get_real_time_data', [request] if request else [], timeout)
+        return self._call(GET_REAL_TIME_DATA, [request] if request else [], timeout)
 
     def set_real_time_data(self, request, timeout=None):
         """
@@ -172,7 +173,7 @@ class Connection:
         request: TODO
         """
         assert isinstance(request, dict), "request must be a dict"
-        self._call('set_real_time_data', [request], timeout)
+        self._call(SET_REAL_TIME_DATA, [request], timeout)
 
     def get_metadata(self, request=None, timeout=None):
         """
@@ -190,7 +191,7 @@ class Connection:
             if 'channelIds' in request:
                 assert isinstance(
                     request['channelIds'], list), "channelIds must be a list if present"
-        return self._call('get_metadata', [request] if request else [], timeout)
+        return self._call(GET_METADATA, [request] if request else [], timeout)
 
     def set_metadata(self, request, timeout=None):
         """
@@ -199,7 +200,7 @@ class Connection:
         request: TODO
         """
         assert isinstance(request, dict), "request must be a dict"
-        self._call('set_metadata', [request], timeout)
+        self._call(SET_METADATA, [request], timeout)
 
     def _call(self, method, params, timeout=None):
         assert isinstance(method, str) and len(
