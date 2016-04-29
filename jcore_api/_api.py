@@ -7,7 +7,6 @@ import websocket
 from ._api_common import LOCAL_SOCKET_PATH
 from ._connection import Connection
 
-
 def connect(api_token):
     """
     Connects to a jcore.io server and authenticates.
