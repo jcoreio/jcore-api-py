@@ -326,7 +326,7 @@ class Connection:
     def _on_close(self, event):
         if not self._closed:
             self.close(JCoreAPIConnectionClosedException(
-                "connection closed: %(code), %(reason)" % event))
+                "connection closed: %(code)d, %(reason)s" % event))
 
     def _require_auth(self):
         self._lock.acquire()

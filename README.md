@@ -4,6 +4,8 @@ Python API for communicating with a jcore.io server.
 
 ## Compatibility
 
+This package is known to require at least Python 2.6 as it uses `bytearray`.
+
 Tested on CPython 2.7.11 and 3.5.1.
 
 ## Installation

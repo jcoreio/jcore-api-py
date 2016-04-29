@@ -29,7 +29,7 @@ def encode_message(data):
     pos = 0
     encoded[0] = PREAMBLE
     pos += 1
-    encoded[pos:pos + LENGTH_LEN] = struct.pack("@i", len(data))
+    encoded[pos:pos + LENGTH_LEN] = struct.pack(">i", len(data))
     pos += LENGTH_LEN
     encoded[pos:] = encoded_data
     return encoded
@@ -38,25 +38,28 @@ def encode_message(data):
 class MessageDecoder:
     """
     decodes framed messages received from the unix socket.
-    """
 
-    def __init__(self):
+    on_message: callback to call with decoded message(s) when complete
+                frames have been received
+    """
+    def __init__(self, on_message):
+        assert hasattr(on_message, '__call__'), "on_message must be callable"
+        self._on_message = on_message
         self._decode_state = DECODE_STATE_INITIAL
-        self._length_buf = bytearray(4)
+        self._length_buf = bytearray(LENGTH_LEN)
         self._length_buf_pos = 0
         self._decode_buffer_pos = 0
         self._decode_buffer = None
 
-    def decode(self, src_buffer, on_message):
+    def decode(self, src_buffer):
         """
         decode a chunk of data from the unix socket.
 
-        src_buffer: the data from the unix socket
-        on_message: callback to call with decoded message(s) when complete
-                    frames have been received
+        src_buffer: the data from the unix socket, a byte array or binary string
         """
-        def message_complete(buf):
-            on_message(buf.decode('utf8'))
+
+        if isinstance(src_buffer, six.binary_type):
+            src_buffer = bytearray(src_buffer)
 
         src_pos = 0
         while src_pos < len(src_buffer):
@@ -64,10 +67,10 @@ class MessageDecoder:
             bytes_read = 0
 
             if self._decode_state is DECODE_STATE_INITIAL:
-                preamble = int(src_buffer[0])
+                preamble = src_buffer[src_pos]
                 bytes_read = 1
-                assert preamble is PREAMBLE, "preamble did not match: expected %(exp), was %(act)" \
-                    % {'exp': PREAMBLE, 'act': preamble}
+                assert preamble is PREAMBLE, "preamble does not match; expected %(exp)c, got %(actual)c" % \
+                    {'exp': PREAMBLE, 'actual': preamble}
                 self._decode_state = DECODE_STATE_READ_LENGTH
 
             elif self._decode_state is DECODE_STATE_READ_LENGTH:
@@ -76,23 +79,25 @@ class MessageDecoder:
                     src_buffer[src_pos:src_pos + bytes_read]
                 self._length_buf_pos += bytes_read
                 if self._length_buf_pos >= LENGTH_LEN:
-                    message_length = struct.unpack("@i", self._length_buf[0:LENGTH_LEN])
+                    message_length = struct.unpack(">i", self._length_buf[0:LENGTH_LEN])[0]
                     if message_length:
                         self._decode_buffer = bytearray(message_length)
                         self._decode_buffer_pos = 0
                         self._decode_state = DECODE_STATE_READ_DATA
                     else:
-                        message_complete(bytearray(0))
+                        self._on_message(six.u(''))
                         self._decode_state = DECODE_STATE_INITIAL
                     self._length_buf_pos = 0
-                    self._length_buf = bytearray(len(self._length_buf))
+                    self._length_buf = bytearray(LENGTH_LEN)
 
             elif self._decode_state is DECODE_STATE_READ_DATA:
-                bytes_read = min(src_remain, len(
-                    self._decode_buffer) - self._decode_buffer_pos)
+                bytes_read = min(src_remain, 
+                    len(self._decode_buffer) - self._decode_buffer_pos)
                 self._decode_buffer[self._decode_buffer_pos:self._decode_buffer_pos + bytes_read] = \
                     src_buffer[src_pos:src_pos + bytes_read]
+                self._decode_buffer_pos += bytes_read
                 if self._decode_buffer_pos >= len(self._decode_buffer):
+                    self._on_message(self._decode_buffer.decode('utf8'))
                     self._decode_state = DECODE_STATE_INITIAL
                     self._decode_buffer = None
 
