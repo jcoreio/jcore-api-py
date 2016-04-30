@@ -7,17 +7,11 @@ import sys
 
 import six
 
-if six.PY2:
-    from Queue import Queue
-else:
-    from queue import Queue
-
 from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
     GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
 from .exceptions import JCoreAPIException, JCoreAPITimeoutException, JCoreAPIAuthException, \
     JCoreAPIConnectionClosedException, JCoreAPIUnexpectedException, \
     JCoreAPIServerException, JCoreAPIInvalidResponseException
-
 
 def _default_on_unexpected_exception(exc_info):
     print(*traceback.format_exception(*exc_info), file=sys.stderr)
@@ -64,7 +58,6 @@ class JCoreAPIConnection:
 
         self._cur_method_id = 0
         self._method_calls = {}
-        self._send_queue = Queue()
 
         self._recv_thread = threading.Thread(
             target=self._run_recv_thread, name="jcore.io receiver")
