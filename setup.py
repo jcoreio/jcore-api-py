@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='jcore_api',
-      version='1.0.dev2',
+      version='1.0.dev3',
       description='jcore.io API',
       url='http://github.com/jcoreio/jcore-api-py',
       author='Andy Edwards',
