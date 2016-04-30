@@ -7,9 +7,9 @@ from unittest import TestCase
 import six
 
 if six.PY3:
-    from queue import Queue
+    from queue import Queue, Empty
 else:
-    from Queue import Queue
+    from Queue import Queue, Empty
 
 from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
     GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
@@ -29,6 +29,10 @@ class MockSock:
         self.sent_queue = Queue()
         self.recv_queue = Queue()
         self.closed = False
+        self.timeout = 0.5
+
+    def gettimeout(self):
+        return self.timeout 
 
     def close(self):
         self.closed = True
@@ -37,11 +41,14 @@ class MockSock:
         self.sent_queue.put_nowait(json.loads(message))
 
     def recv(self):
-        message = self.recv_queue.get()
+        try:
+            message = self.recv_queue.get(timeout=self.timeout)
+        except Empty as e:
+            raise JCoreAPITimeoutException("recv timed out", e) 
+
         if isinstance(message, Exception):
             raise message
         return json.dumps(message)
-
 
 class TestAPI(TestCase):
 
@@ -50,7 +57,7 @@ class TestAPI(TestCase):
         conn = JCoreAPIConnection(sock)
 
         def runsock():
-            self.assertEqual(sock.sent_queue.get(timeout=1), {
+            self.assertEqual(sock.sent_queue.get(timeout=sock.timeout), {
                              'msg': CONNECT, 'token': token})
             sock.recv_queue.put_nowait({"msg": CONNECTED})
 
@@ -58,7 +65,7 @@ class TestAPI(TestCase):
         thread.daemon = True
         thread.start()
 
-        conn.authenticate(token, timeout=3)
+        conn.authenticate(token)
 
         self.assertFalse(conn._authenticating)
         self.assertTrue(conn._authenticated)
@@ -68,7 +75,7 @@ class TestAPI(TestCase):
         conn = JCoreAPIConnection(sock)
 
         def runsock():
-            self.assertEqual(sock.sent_queue.get(timeout=1), {
+            self.assertEqual(sock.sent_queue.get(timeout=sock.timeout), {
                              'msg': CONNECT, 'token': token})
             sock.recv_queue.put_nowait({"msg": FAILED})
 
@@ -77,7 +84,7 @@ class TestAPI(TestCase):
         thread.start()
 
         try:
-            conn.authenticate(token, timeout=3)
+            conn.authenticate(token)
             self.fail("authenticate should have raised exception")
         except JCoreAPIAuthException as e:
             pass
@@ -87,10 +94,11 @@ class TestAPI(TestCase):
 
     def test_auth_timeout(self):
         sock = MockSock()
+        sock.timeout = 0.01
         conn = JCoreAPIConnection(sock)
 
         try:
-            conn.authenticate(token, timeout=0.1)
+            conn.authenticate(token)
             self.fail("authenticate should have timed out")
         except JCoreAPITimeoutException as e:
             pass
@@ -105,7 +113,7 @@ class TestAPI(TestCase):
         conn._authenticating = True
 
         try:
-            conn.authenticate(token, timeout=1)
+            conn.authenticate(token)
             self.fail("authenticate should have raised exception")
         except JCoreAPIAuthException as e:
             pass
@@ -120,7 +128,7 @@ class TestAPI(TestCase):
         conn._authenticated = True
 
         try:
-            conn.authenticate(token, timeout=1)
+            conn.authenticate(token)
             self.fail("authenticate should have raised exception")
         except JCoreAPIAuthException as e:
             pass
@@ -135,7 +143,7 @@ class TestAPI(TestCase):
         conn._closed = True
 
         try:
-            conn.authenticate(token, timeout=3)
+            conn.authenticate(token)
             self.fail("authenticate should have raised exception")
         except JCoreAPIConnectionClosedException:
             pass
@@ -150,7 +158,7 @@ class TestAPI(TestCase):
         exception = JCoreAPIConnectionClosedException('test')
 
         def runsock():
-            self.assertEqual(sock.sent_queue.get(timeout=1), {
+            self.assertEqual(sock.sent_queue.get(timeout=sock.timeout), {
                              'msg': CONNECT, 'token': token})
             sock.recv_queue.put_nowait(exception)
 
@@ -159,7 +167,7 @@ class TestAPI(TestCase):
         thread.start()
 
         try:
-            conn.authenticate(token, timeout=3)
+            conn.authenticate(token)
             self.fail("authenticate should have raised exception")
         except JCoreAPIConnectionClosedException as e:
             self.assertIs(exception, e)
@@ -178,11 +186,11 @@ class TestAPI(TestCase):
         result2 = {'cats': 'dogs'}
 
         def runsock():
-            self.assertEqual(sock.sent_queue.get(timeout=1), {
+            self.assertEqual(sock.sent_queue.get(timeout=sock.timeout), {
                              'msg': METHOD, 'id': '0',    'method': GET_METADATA, 'params': []})
             sock.recv_queue.put_nowait(
                 {"msg": RESULT, 'id': '0', 'result': result1})
-            self.assertEqual(sock.sent_queue.get(timeout=1), {
+            self.assertEqual(sock.sent_queue.get(timeout=sock.timeout), {
                              'msg': METHOD, 'id': '1',    'method': GET_METADATA, 'params': []})
             sock.recv_queue.put_nowait(
                 {"msg": RESULT, 'id': '1', 'result': result2})
@@ -191,8 +199,8 @@ class TestAPI(TestCase):
         thread.daemon = True
         thread.start()
 
-        self.assertEqual(conn.get_metadata(timeout=1), result1)
-        self.assertEqual(conn.get_metadata(timeout=1), result2)
+        self.assertEqual(conn.get_metadata(), result1)
+        self.assertEqual(conn.get_metadata(), result2)
 
     def test_get_metadata(self):
         sock = MockSock()
@@ -201,32 +209,32 @@ class TestAPI(TestCase):
         conn._authenticated = True
 
         try:
-            conn.get_metadata(timeout=0.01)
+            conn.get_metadata()
         except JCoreAPITimeoutException:
             pass
 
-        self.assertEqual(GET_METADATA, sock.sent_queue.get(timeout=1)['method'])
+        self.assertEqual(GET_METADATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
 
         try:
-            conn.set_metadata({}, timeout=0.01)
+            conn.set_metadata({})
         except JCoreAPITimeoutException:
             pass
 
-        self.assertEqual(SET_METADATA, sock.sent_queue.get(timeout=1)['method'])
+        self.assertEqual(SET_METADATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
 
         try:
-            conn.get_real_time_data(timeout=0.01)
+            conn.get_real_time_data()
         except JCoreAPITimeoutException:
             pass
 
-        self.assertEqual(GET_REAL_TIME_DATA, sock.sent_queue.get(timeout=1)['method'])
+        self.assertEqual(GET_REAL_TIME_DATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
 
         try:
-            conn.set_real_time_data({}, timeout=0.01)
+            conn.set_real_time_data({})
         except JCoreAPITimeoutException:
             pass
 
-        self.assertEqual(SET_REAL_TIME_DATA, sock.sent_queue.get(timeout=1)['method'])
+        self.assertEqual(SET_REAL_TIME_DATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
 
     def test_call_error(self):
         sock = MockSock()
@@ -235,7 +243,7 @@ class TestAPI(TestCase):
         conn._authenticated = True
 
         def runsock():
-            self.assertEqual(sock.sent_queue.get(timeout=1), {
+            self.assertEqual(sock.sent_queue.get(timeout=sock.timeout), {
                              'msg': METHOD, 'id': '0',    'method': GET_METADATA, 'params': []})
             sock.recv_queue.put_nowait(
                 {"msg": RESULT, 'id': '0', 'error': 'test_call_error'})
@@ -245,13 +253,13 @@ class TestAPI(TestCase):
         thread.start()
 
         try:
-            conn.get_metadata(timeout=1)
+            conn.get_metadata()
             self.fail("get_metadata should have raised an exception")
         except JCoreAPIServerException as e:
             self.assertTrue('test_call_error' in e.args[0])
             pass
         finally:
-            thread.join(timeout=3)
+            thread.join(timeout=sock.timeout)
 
     def test_call_invalid_responses(self):
         sock = MockSock()
@@ -263,7 +271,7 @@ class TestAPI(TestCase):
         result1 = {'hello': 'world'}
 
         def runsock():
-            self.assertEqual(sock.sent_queue.get(timeout=1), {
+            self.assertEqual(sock.sent_queue.get(timeout=sock.timeout), {
                              'msg': METHOD, 'id': '0',    'method': GET_METADATA, 'params': []})
             sock.recv_queue.put_nowait({'id': '0', 'result': result1})
             sock.recv_queue.put_nowait(
@@ -284,19 +292,19 @@ class TestAPI(TestCase):
         thread.start()
 
         try:
-            conn.get_metadata(timeout=1)
+            conn.get_metadata()
             self.fail("get_metadata should have raised exception")
         except JCoreAPIInvalidResponseException:
             pass
         finally:
-            thread.join(timeout=3)
+            thread.join(timeout=sock.timeout)
 
     def test_call_unauthenticated(self):
         sock = MockSock()
         conn = JCoreAPIConnection(sock)
 
         try:
-            conn.get_metadata(timeout=1)
+            conn.get_metadata()
             self.fail("get_metadata should have raised exception")
         except JCoreAPIAuthException:
             pass
@@ -319,7 +327,7 @@ class TestAPI(TestCase):
         thread.start()
 
         try:
-            conn.get_metadata(timeout=1)
+            conn.get_metadata()
             self.fail("get_metadata should have raised exception")
         except JCoreAPIConnectionClosedException:
             pass
@@ -335,7 +343,7 @@ class TestAPI(TestCase):
         conn._closed = True
 
         try:
-            conn.get_metadata(timeout=1)
+            conn.get_metadata()
             self.fail("get_metadata should have raised exception")
         except JCoreAPIConnectionClosedException:
             pass
@@ -358,7 +366,7 @@ class TestAPI(TestCase):
         thread.start()
 
         try:
-            self.assertEqual(conn.get_metadata(timeout=1), result)
+            self.assertEqual(conn.get_metadata(), result)
             self.fail("get_metadata should have raised exception")
         except JCoreAPITimeoutException:
             pass
@@ -378,7 +386,7 @@ class TestAPI(TestCase):
 
         def runauth():
             try:
-                conn.authenticate(token, timeout=5)
+                conn.authenticate(token)
                 self.fail("authenticate should have raised exception")
             except JCoreAPIConnectionClosedException:
                 pass
@@ -397,7 +405,7 @@ class TestAPI(TestCase):
         time.sleep(0.1)
 
         conn.close()
-        thread.join(timeout=2)
+        thread.join(timeout=sock.timeout)
 
         self.assertTrue(conn._closed)
         self.assertTrue(sock.closed)
@@ -412,7 +420,7 @@ class TestAPI(TestCase):
 
         def runcall():
             try:
-                conn.get_metadata(timeout=1)
+                conn.get_metadata()
                 self.fail("get_metadata should have raised exception")
             except JCoreAPIConnectionClosedException:
                 pass
@@ -431,7 +439,7 @@ class TestAPI(TestCase):
         time.sleep(0.1)
 
         conn.close()
-        thread.join(timeout=2)
+        thread.join(timeout=sock.timeout)
 
         self.assertTrue(conn._closed)
         self.assertTrue(sock.closed)

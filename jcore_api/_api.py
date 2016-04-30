@@ -4,12 +4,19 @@ import socket
 
 import six
 
+from websocket import WebSocket
+
 from ._api_common import LOCAL_SOCKET_PATH
 from ._connection import JCoreAPIConnection
 from ._jcore_web_socket import JCoreWebSocket
 from ._unix_sockets._jcore_unix_socket import JCoreUnixSocket
 
-def connect(api_token):
+def _default_create_web_socket(url):
+    sock = WebSocket()
+    sock.connect(url)
+    return sock
+
+def connect(api_token, create_socket=_default_create_web_socket):
     """
     Connects to a jcore.io server and authenticates.
 
@@ -29,24 +36,22 @@ def connect(api_token):
     assert isinstance(token, six.string_types) and len(
         token) > 0, 'decoded token must be a nonempty string'
 
-    sock = JCoreWebSocket()
-    sock.connect(url)
-
+    sock = JCoreWebSocket(create_socket(url))
     connection = JCoreAPIConnection(sock)
     connection.authenticate(token)
-
     return connection
 
-def connect_local():
+def _default_create_unix_socket(path):
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(path)
+    return sock
+
+def connect_local(create_socket=_default_create_unix_socket):
     """
     Connects to a jcore.io server on the local machine via a
     unix socket.
 
     returns: an JCoreAPIConnection instance.
     """
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect(LOCAL_SOCKET_PATH)
-
-    connection = JCoreAPIConnection(JCoreUnixSocket(sock), auth_required=False)
-
-    return connection
+    sock = JCoreUnixSocket(create_socket(LOCAL_SOCKET_PATH))
+    return JCoreAPIConnection(sock, auth_required=False)

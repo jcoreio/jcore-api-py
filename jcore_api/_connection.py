@@ -7,6 +7,11 @@ import sys
 
 import six
 
+if six.PY2:
+    from Queue import Queue
+else:
+    from queue import Queue
+
 from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
     GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
 from .exceptions import JCoreAPIException, JCoreAPITimeoutException, JCoreAPIAuthException, \
@@ -45,8 +50,7 @@ class JCoreAPIConnection:
                                 If so, methods will throw an error if the client is not authenticated.
                                 default is True
     """
-
-    def __init__(self, sock, auth_required=True, on_unexpected_exception=_default_on_unexpected_exception, default_timeout=None):
+    def __init__(self, sock, auth_required=True, on_unexpected_exception=_default_on_unexpected_exception):
         self._lock = threading.RLock()
         self._sock = sock
         self._auth_required = auth_required
@@ -57,27 +61,37 @@ class JCoreAPIConnection:
         self._authenticated = False
         self._autherror = None
         self._authcv = threading.Condition(self._lock)
-        self._default_timeout = default_timeout
 
         self._cur_method_id = 0
         self._method_calls = {}
+        self._send_queue = Queue()
 
-        self._thread = threading.Thread(
-            target=self._run, name="jcore.io Connection")
-        self._thread.daemon = True
+        self._recv_thread = threading.Thread(
+            target=self._run_recv_thread, name="jcore.io receiver")
+        self._recv_thread.daemon = True
 
-    def _run(self):
+    def _run_recv_thread(self):
         # store reference because this will be set to None upon close
         sock = self._sock
         while not self._closed:
+            message = None
             try:
                 message = sock.recv()
+            except JCoreAPITimeoutException:
+                continue
             except JCoreAPIConnectionClosedException as error:
                 self.close(error, sock_is_closed=True)
                 return
+            except Exception as e:
+                try:
+                    self._on_unexpected_exception((JCoreAPIUnexpectedException, JCoreAPIUnexpectedException(
+                        "unexpected other exception", e), sys.exc_info()[2]))
+                except Exception as e:
+                    traceback.print_exc()
+
             self._on_message(message)
 
-    def authenticate(self, token, timeout=None):
+    def authenticate(self, token):
         """
         authenticate the client.
 
@@ -85,9 +99,6 @@ class JCoreAPIConnection:
         """
         assert isinstance(token, six.text_type) and len(
             token) > 0, "token must be a non-empty unicode string"
-
-        if timeout is None:
-            timeout = self._default_timeout
 
         self._lock.acquire()
         try:
@@ -103,7 +114,7 @@ class JCoreAPIConnection:
             self._send(CONNECT, {six.u('token'): token})
 
             while self._authenticating:
-                _wait(self._authcv, timeout)
+                _wait(self._authcv, self._sock.gettimeout())
 
             if self._autherror:
                 raise self._autherror
@@ -145,7 +156,7 @@ class JCoreAPIConnection:
         finally:
             self._lock.release()
 
-    def get_real_time_data(self, request=None, timeout=None):
+    def get_real_time_data(self, request=None):
         """
         Gets real-time data from the server.
 
@@ -160,18 +171,18 @@ class JCoreAPIConnection:
             if 'channelIds' in request:
                 assert isinstance(
                     request['channelIds'], list), "channelIds must be a list if present"
-        return self._call(GET_REAL_TIME_DATA, [request] if request else [], timeout)
+        return self._call(GET_REAL_TIME_DATA, [request] if request else [])
 
-    def set_real_time_data(self, request, timeout=None):
+    def set_real_time_data(self, request):
         """
         Sets real-time data on the server.
 
         request: TODO
         """
         assert isinstance(request, dict), "request must be a dict"
-        self._call(SET_REAL_TIME_DATA, [request], timeout)
+        self._call(SET_REAL_TIME_DATA, [request])
 
-    def get_metadata(self, request=None, timeout=None):
+    def get_metadata(self, request=None):
         """
         Gets metadata from the server.
 
@@ -187,23 +198,20 @@ class JCoreAPIConnection:
             if 'channelIds' in request:
                 assert isinstance(
                     request['channelIds'], list), "channelIds must be a list if present"
-        return self._call(GET_METADATA, [request] if request else [], timeout)
+        return self._call(GET_METADATA, [request] if request else [])
 
-    def set_metadata(self, request, timeout=None):
+    def set_metadata(self, request):
         """
         Sets metadata on the server.
 
         request: TODO
         """
         assert isinstance(request, dict), "request must be a dict"
-        self._call(SET_METADATA, [request], timeout)
+        self._call(SET_METADATA, [request])
 
-    def _call(self, method, params, timeout=None):
+    def _call(self, method, params):
         assert isinstance(method, str) and len(
             method) > 0, "method must be a non-empty str"
-
-        if timeout is None:
-            timeout = self._default_timeout
 
         method_info = None
 
@@ -226,7 +234,7 @@ class JCoreAPIConnection:
         self._lock.acquire()
         try:
             while 'result' not in method_info and 'error' not in method_info:
-                _wait(method_info['cv'], timeout)
+                _wait(method_info['cv'], self._sock.gettimeout())
         finally:
             self._lock.release()
 
@@ -241,7 +249,7 @@ class JCoreAPIConnection:
         try:
             if not self._started:
                 self._started = True
-                self._thread.start()
+                self._recv_thread.start()
 
             sock = self._sock
             if not sock or self._closed:

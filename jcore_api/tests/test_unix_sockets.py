@@ -47,6 +47,10 @@ class MockSock:
         self.closed = False
         self.lock = Lock()
         self.cond = Condition(self.lock)
+        self.timeout = 0.5
+
+    def gettimeout(self):
+        return self.timeout
 
     def close(self):
         self.lock.acquire()

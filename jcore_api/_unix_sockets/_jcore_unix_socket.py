@@ -4,15 +4,16 @@ A WebSocket-like interface to a unix socket with basic message framing
 """
 
 import threading
+from socket import socket
 
 import six
 
 if six.PY3:
-    from queue import Queue
+    from queue import Queue, Empty
 else:
-    from Queue import Queue
+    from Queue import Queue, Empty
 
-from ..exceptions import JCoreAPIConnectionClosedException
+from ..exceptions import JCoreAPIConnectionClosedException, JCoreAPITimeoutException
 from ._message_codec import encode_message, MessageDecoder
 
 CHUNK_SIZE = 2048
@@ -34,12 +35,18 @@ class JCoreUnixSocket:
 
     def _run(self):
         while not self._closed:
-            message = self._sock.recv(CHUNK_SIZE)
+            try:
+                message = self._sock.recv(CHUNK_SIZE)
+            except socket.timeout:
+                continue
             if not len(message):
                 self._closed = True
                 self._recv_queue.put_nowait(JCoreAPIConnectionClosedException("socket connection broken"))
                 return
             self._decoder.decode(message)
+
+    def gettimeout(self):
+        return self._sock.gettimeout()
 
     def close(self):
         self._sock.close()
@@ -50,7 +57,10 @@ class JCoreUnixSocket:
             self._started = True
             self._thread.start()
 
-        message = self._recv_queue.get()
+        try:
+            message = self._recv_queue.get(timeout=self._sock.gettimeout())
+        except Empty as e:
+            raise JCoreAPITimeoutException("recv timed out", e)    
         if isinstance(message, Exception):
             # put exception back on the queue in case there are any
             # other waiting receivers
@@ -62,7 +72,10 @@ class JCoreUnixSocket:
         totalsent = 0
         encoded = encode_message(message)
         while totalsent < len(encoded):
-            sent = self._sock.send(encoded[totalsent:])
+            try:
+                sent = self._sock.send(encoded[totalsent:])
+            except socket.timeout as e:
+                raise JCoreAPITimeoutException("send timed out", e)
             if sent == 0:
                 self._closed = True
                 raise JCoreAPIConnectionClosedException("socket connection broken")
