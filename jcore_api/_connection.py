@@ -7,7 +7,7 @@ import sys
 
 import six
 
-from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
+from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, GET_HISTORICAL_DATA, \
     GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
 from .exceptions import JCoreAPIException, JCoreAPITimeoutException, JCoreAPIAuthException, \
     JCoreAPIConnectionClosedException, JCoreAPIUnexpectedException, \
@@ -201,6 +201,30 @@ class JCoreAPIConnection:
         """
         assert isinstance(request, dict), "request must be a dict"
         self._call(SET_METADATA, [request])
+
+    def get_historical_data(self, request):
+        """
+        Gets historical data from the server.
+
+        request: a dict with the following fields:
+                 - channelIds (optional): a list of channel ids
+                 - beginTime: the beginning of the time range to fetch; either an ISO Date
+                              string or a numeric timestamp (milliseconds since the epoch)
+                 - endTime: the end of the time range to fetch; either an ISO Date
+                              string or a numeric timestamp (milliseconds since the epoch)
+
+        returns: a dict with the following fields (unicode keys):
+                 - beginTime: the beginning of the result time range: milliseconds since the epoch
+                 - endTime: the beginning of the result time range: milliseconds since the epoch
+                 - data: TODO
+        """
+        assert isinstance(request, dict), "request must be a dict"
+        if 'channelIds' in request:
+            assert isinstance(
+                request['channelIds'], list), "channelIds must be a list if present"
+        assert isinstance(request['beginTime'], six.string_types), "request['beginTime'] must be a string"
+        assert isinstance(request['endTime'], six.string_types), "request['endTime'] must be a string"
+        return self._call(GET_HISTORICAL_DATA, [request])
 
     def _call(self, method, params):
         assert isinstance(method, str) and len(

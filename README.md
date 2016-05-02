@@ -68,3 +68,19 @@ returns a dict mapping from channelId to dicts of min, max, name, and precision.
 Sets metadata on the server.
 
 request: TODO
+
+### get_historical_data(request)
+
+Gets historical data from the server.
+
+request: a dict with the following fields:
+* channelIds: a list of channel ids
+* beginTime: the beginning of the time range to fetch; either an ISO Date
+            string or a numeric timestamp (milliseconds since the epoch)
+* endTime: the end of the time range to fetch; either an ISO Date
+            string or a numeric timestamp (milliseconds since the epoch)
+
+returns: a dict with the following fields (unicode keys):
+* beginTime: the beginning of the result time range: milliseconds since the epoch
+* endTime: the beginning of the result time range: milliseconds since the epoch
+* data: TODO

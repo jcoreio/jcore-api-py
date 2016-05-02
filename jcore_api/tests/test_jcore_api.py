@@ -12,7 +12,7 @@ else:
     from Queue import Queue, Empty
 
 from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
-    GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
+    GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA, GET_HISTORICAL_DATA
 from jcore_api import JCoreAPIConnection
 from jcore_api.exceptions import JCoreAPIAuthException, JCoreAPITimeoutException, \
     JCoreAPIConnectionClosedException, JCoreAPIServerException, \
@@ -202,7 +202,7 @@ class TestAPI(TestCase):
         self.assertEqual(conn.get_metadata(), result1)
         self.assertEqual(conn.get_metadata(), result2)
 
-    def test_get_metadata(self):
+    def test_methods_present(self):
         sock = MockSock()
         conn = JCoreAPIConnection(sock)
 
@@ -235,6 +235,14 @@ class TestAPI(TestCase):
             pass
 
         self.assertEqual(SET_REAL_TIME_DATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
+
+        try:
+            conn.get_historical_data({'beginTime': '2016-04-30T12:00', 'endTime': '2016-05-01T12:00'})
+        except JCoreAPITimeoutException:
+            pass
+
+        self.assertEqual(GET_HISTORICAL_DATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
+
 
     def test_call_error(self):
         sock = MockSock()
