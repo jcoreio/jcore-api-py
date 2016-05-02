@@ -1,5 +1,5 @@
 {
-  "gitbook": "2.4.3",
+  "gitbook": "2.x.x",
   "title": "jcore.io Python API",
   "structure": {
     "summary": "docs/README.md"
