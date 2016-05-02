@@ -18,9 +18,9 @@
 ### Example
 
 ```py
-from jcore_api import connect
+from jcore_api import connect_local
 
-conn = connect("eyJ1cmwiOiJ3czovL2xvY2FsaG9zdDozMDMwL2pjb3JlLWFwaSIsInRva2VuIjoiRWpITEkvcFlpOWxrbldUL2E5dEJnNlY2Um9pdXhsTEZJOUdMTUJUYk9oQm15bko1ZFlGRGZWRVJ3YnJmUlFWcSJ9")
+conn = connect_local()
 
 conn.get_metadata({'channelIds': ['andysDevice.analog1', 'andysDevice.analog2']})
 # {u'andysDevice.analog1': {u'units': u'V', u'max': 200, u'precision': 1, u'name': u'Analog 1', u'min': 0}, u'andysDevice.analog2': {u'units': u'V', u'max': 5, u'precision': 1, u'name': u'Analog 2', u'min': 0}}
