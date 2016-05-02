@@ -2,7 +2,7 @@
 
 Connects to a jcore.io server via WebSocket.
 
-## Arguments
+### Arguments
 
 1. `api_token` *(string)*: an API token from a jcore.io server; it is base64 encoded and contains the URL of the server.
 
@@ -10,12 +10,12 @@ Connects to a jcore.io server via WebSocket.
 proxy, set the timeout, etc.).  It is passed one argument: the `url` to connect to, and should return an instance of
 [`websocket.WebSocket`](https://github.com/liris/websocket-client).
 
-## Returns
+### Returns
 
 ([*Connection*](Connection/README.md)): an object that keeps track of a connection to the server and allows you to call API
 methods.
 
-## Example
+### Example
 
 ```py
 from websocket import WebSocket
