@@ -16,7 +16,7 @@ methods.
 ### Example
 
 ```py
-from socket import socket, AF_UNIX, SOCK_STREAM
+from socket import socket, AF_UNIX
 from jcore_api import connect_local
 
 def create_socket(path):
