@@ -25,3 +25,7 @@ jcore = connect_local()
 
 print(jcore.get_metadata())
 ```
+
+### Documentation
+
+* [API Reference](https://jcoreio.gitbooks.io/jcore-api-py/content/docs/api/index.html)
