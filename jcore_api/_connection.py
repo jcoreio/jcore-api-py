@@ -172,7 +172,7 @@ class JCoreAPIConnection:
 
         returns TODO
         """
-        return self._call(GET_REAL_TIME_DATA, [{'channelids': _get_channelids(channelids)}] if channelids else [])
+        return self._call(GET_REAL_TIME_DATA, [{'channelIds': _get_channelids(channelids)}] if channelids else [])
 
     def set_real_time_data(self, request):
         """
