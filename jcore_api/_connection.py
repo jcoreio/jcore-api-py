@@ -31,6 +31,17 @@ def _from_protocol_error(error):
         if isinstance(error, dict):
             return error[six.u('error')] if six.u('error') in error else error
 
+def _get_channelids(channelids=None):
+    """
+    Normalizes maybe string or list of strings to maybe list of strings
+    """
+    if isinstance(channelids, six.string_types):
+        return [channelids]
+    if channelids:
+        assert isinstance(channelids, list), "channelids must be a string or list if present"
+        for channelid in channelids:
+            assert isinstance(channelid, six.string_types), "channelids must all be strings"
+    return channelids
 
 class JCoreAPIConnection:
     """
@@ -149,22 +160,15 @@ class JCoreAPIConnection:
         finally:
             self._lock.release()
 
-    def get_real_time_data(self, request=None):
+    def get_real_time_data(self, channelids=None):
         """
         Gets real-time data from the server.
 
-        request: a dict that may contain a list of channelIds (strings).
-                         If channelIds are not given, gets all channels.
+        channelids: a string or list of strings specifying the channel id(s) to get data for
 
         returns TODO
         """
-        if request:
-            assert isinstance(
-                request, dict), "request must be a dict if present"
-            if 'channelIds' in request:
-                assert isinstance(
-                    request['channelIds'], list), "channelIds must be a list if present"
-        return self._call(GET_REAL_TIME_DATA, [request] if request else [])
+        return self._call(GET_REAL_TIME_DATA, [{'channelids': _get_channelids(channelids)}] if channelids else [])
 
     def set_real_time_data(self, request):
         """
@@ -175,23 +179,16 @@ class JCoreAPIConnection:
         assert isinstance(request, dict), "request must be a dict"
         self._call(SET_REAL_TIME_DATA, [request])
 
-    def get_metadata(self, request=None):
+    def get_metadata(self, channelids=None):
         """
         Gets metadata from the server.
 
-        request: a dict that may contain a list of channelIds (strings).
-                         If channelIds are not given, gets all channels.
+        channelids: a string or list of strings specifying the channel id(s) to get data for
 
         returns a dict mapping from channelId to dicts of min, max, name, and precision.
                         all strings in the return value are unicode
         """
-        if request:
-            assert isinstance(
-                request, dict), "request must be a dict if present"
-            if 'channelIds' in request:
-                assert isinstance(
-                    request['channelIds'], list), "channelIds must be a list if present"
-        return self._call(GET_METADATA, [request] if request else [])
+        return self._call(GET_METADATA, [{'channelIds': _get_channelids(channelids)}] if channelids else [])
 
     def set_metadata(self, request):
         """
@@ -202,29 +199,27 @@ class JCoreAPIConnection:
         assert isinstance(request, dict), "request must be a dict"
         self._call(SET_METADATA, [request])
 
-    def get_historical_data(self, request):
+    def get_historical_data(self, channelids, begintime, endtime):
         """
         Gets historical data from the server.
 
-        request: a dict with the following fields:
-                 - channelIds (optional): a list of channel ids
-                 - beginTime: the beginning of the time range to fetch; either an ISO Date
-                              string or a numeric timestamp (milliseconds since the epoch)
-                 - endTime: the end of the time range to fetch; either an ISO Date
-                              string or a numeric timestamp (milliseconds since the epoch)
+        channelids: a string or list of strings specifying the channel id(s) to get data for
+        begintime: the beginning of the time range to fetch; either an ISO Date
+                     string or a numeric timestamp (milliseconds since the epoch)
+        endtime: the end of the time range to fetch; either an ISO Date
+                   string or a numeric timestamp (milliseconds since the epoch)
 
         returns: a dict with the following fields (unicode keys):
                  - beginTime: the beginning of the result time range: milliseconds since the epoch
                  - endTime: the beginning of the result time range: milliseconds since the epoch
                  - data: TODO
         """
-        assert isinstance(request, dict), "request must be a dict"
-        if 'channelIds' in request:
-            assert isinstance(
-                request['channelIds'], list), "channelIds must be a list if present"
-        assert isinstance(request['beginTime'], six.string_types), "request['beginTime'] must be a string"
-        assert isinstance(request['endTime'], six.string_types), "request['endTime'] must be a string"
-        return self._call(GET_HISTORICAL_DATA, [request])
+        channelids = _get_channelids(channelids)
+        assert isinstance(begintime, int) or isinstance(begintime, six.string_types), \
+                "begintime must be a string or number"
+        assert isinstance(endtime, int) or isinstance(endtime, six.string_types), \
+                "endtime must be a string or number"
+        return self._call(GET_HISTORICAL_DATA, [{'channelIds': channelids, 'beginTime': begintime, 'endTime': endtime}])
 
     def _call(self, method, params):
         assert isinstance(method, str) and len(

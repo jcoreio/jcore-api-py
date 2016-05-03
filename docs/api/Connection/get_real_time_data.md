@@ -4,8 +4,7 @@ Gets the latest values of channel(s).
 
 ### Arguments
 
-1. [`request`] *(dict)*: request options, including:
-  * [`'channelIds'`] *(list)*: list of channel ids (strings) to get data for (defaults to all channels)
+* [channelids] *(string|list)*: channel id(s) to get data for (defaults to all channels)
 
 ### Returns
 

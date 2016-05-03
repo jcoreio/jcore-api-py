@@ -237,7 +237,7 @@ class TestAPI(TestCase):
         self.assertEqual(SET_REAL_TIME_DATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
 
         try:
-            conn.get_historical_data({'beginTime': '2016-04-30T12:00', 'endTime': '2016-05-01T12:00'})
+            conn.get_historical_data(channelids='channel1', begintime='2016-04-30T12:00', endtime='2016-05-01T12:00')
         except JCoreAPITimeoutException:
             pass
 
