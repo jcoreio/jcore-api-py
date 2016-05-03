@@ -7,7 +7,7 @@
 
 ### Returns
 
-*(dict)*: a parsed [JSON Real-Time Data message](schema/realTimeData.md).
+*(dict)*: a parsed [JSON Real-Time Data message](../schema/realTimeData.md).
 
 ### Example
 
