@@ -25,11 +25,12 @@ def swallow_exception(exc_info):
 
 
 class MockSock:
-    def __init__(self):
+    def __init__(self, autorespond=False):
         self.sent_queue = Queue()
         self.recv_queue = Queue()
         self.closed = False
         self.timeout = 0.5
+        self.autorespond = autorespond
 
     def gettimeout(self):
         return self.timeout 
@@ -38,7 +39,10 @@ class MockSock:
         self.closed = True
 
     def send(self, message):
-        self.sent_queue.put_nowait(json.loads(message))
+        parsed = json.loads(message)
+        self.sent_queue.put_nowait(parsed)
+        if self.autorespond:
+            self.recv_queue.put_nowait({'msg': RESULT, 'id': parsed['id']})
 
     def recv(self):
         try:
@@ -51,7 +55,6 @@ class MockSock:
         return json.dumps(message)
 
 class TestAPI(TestCase):
-
     def test_authenticate(self):
         sock = MockSock()
         conn = JCoreAPIConnection(sock)
@@ -210,47 +213,115 @@ class TestAPI(TestCase):
 
         thread.join(1)
 
-    def test_methods_present(self):
-        sock = MockSock()
+    def test_get_metadata_schema(self):
+        sock = MockSock(autorespond=True)
         conn = JCoreAPIConnection(sock)
 
         conn._authenticated = True
 
-        try:
-            conn.get_metadata()
-        except JCoreAPITimeoutException:
-            pass
+        conn.get_metadata()
+        self.assertEqual({
+                six.u('msg'): 'method', 
+                six.u('method'): six.u(GET_METADATA),
+                six.u('params'): [],
+                six.u('id'): six.u('0')
+            }, sock.sent_queue.get(timeout=sock.timeout))
 
-        self.assertEqual(GET_METADATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
+        conn.get_metadata(channelids='hello')
+        self.assertEqual({
+                six.u('msg'): 'method', 
+                six.u('method'): six.u(GET_METADATA),
+                six.u('params'): [{six.u('channelIds'): [six.u('hello')]}],
+                six.u('id'): six.u('1')
+            }, sock.sent_queue.get(timeout=sock.timeout))
 
-        try:
-            conn.set_metadata({})
-        except JCoreAPITimeoutException:
-            pass
+        conn.get_metadata(channelids=['hello', 'world'])
+        self.assertEqual({
+                six.u('msg'): 'method', 
+                six.u('method'): six.u(GET_METADATA),
+                six.u('params'): [{six.u('channelIds'): [six.u('hello'), six.u('world')]}],
+                six.u('id'): six.u('2')
+            }, sock.sent_queue.get(timeout=sock.timeout))
 
-        self.assertEqual(SET_METADATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
+    def test_set_metadata_schema(self):
+        sock = MockSock(autorespond=True)
+        conn = JCoreAPIConnection(sock)
 
-        try:
-            conn.get_real_time_data()
-        except JCoreAPITimeoutException:
-            pass
+        conn._authenticated = True
 
-        self.assertEqual(GET_REAL_TIME_DATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
+        conn.set_metadata({'hello': {'name': 'szia'}})
+        self.assertEqual({
+                six.u('msg'): 'method',
+                six.u('method'): six.u(SET_METADATA),
+                six.u('params'): [
+                    {six.u('hello'): {six.u('name'): six.u('szia')}}
+                ],
+                six.u('id'): six.u('0')
+            }, sock.sent_queue.get(timeout=sock.timeout))
 
-        try:
-            conn.set_real_time_data({})
-        except JCoreAPITimeoutException:
-            pass
+    def test_get_real_time_data_schema(self):
+        sock = MockSock(autorespond=True)
+        conn = JCoreAPIConnection(sock)
 
-        self.assertEqual(SET_REAL_TIME_DATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
+        conn._authenticated = True
 
-        try:
-            conn.get_historical_data(channelids='channel1', begintime='2016-04-30T12:00', endtime='2016-05-01T12:00')
-        except JCoreAPITimeoutException:
-            pass
+        conn.get_real_time_data()
+        self.assertEqual({
+                six.u('msg'): 'method', 
+                six.u('method'): six.u(GET_REAL_TIME_DATA),
+                six.u('params'): [],
+                six.u('id'): six.u('0')
+            }, sock.sent_queue.get(timeout=sock.timeout))
 
-        self.assertEqual(GET_HISTORICAL_DATA, sock.sent_queue.get(timeout=sock.timeout)['method'])
+        conn.get_real_time_data(channelids='hello')
+        self.assertEqual({
+                six.u('msg'): 'method', 
+                six.u('method'): six.u(GET_REAL_TIME_DATA),
+                six.u('params'): [{six.u('channelIds'): [six.u('hello')]}],
+                six.u('id'): six.u('1')
+            }, sock.sent_queue.get(timeout=sock.timeout))
 
+        conn.get_real_time_data(channelids=['hello', 'world'])
+        self.assertEqual({
+                six.u('msg'): 'method', 
+                six.u('method'): six.u(GET_REAL_TIME_DATA),
+                six.u('params'): [{six.u('channelIds'): [six.u('hello'), six.u('world')]}],
+                six.u('id'): six.u('2')
+            }, sock.sent_queue.get(timeout=sock.timeout))
+
+    def test_set_real_time_data_schema(self):
+        sock = MockSock(autorespond=True)
+        conn = JCoreAPIConnection(sock)
+
+        conn._authenticated = True
+
+        conn.set_real_time_data({'powerlevel': 9000.000001})
+        self.assertEqual({
+                six.u('msg'): 'method',
+                six.u('method'): six.u(SET_REAL_TIME_DATA),
+                six.u('params'): [
+                    {six.u('powerlevel'): 9000.000001}
+                ],
+                six.u('id'): six.u('0')
+            }, sock.sent_queue.get(timeout=sock.timeout))
+
+    def test_get_historical_data_schema(self):
+        sock = MockSock(autorespond=True)
+        conn = JCoreAPIConnection(sock)
+
+        conn._authenticated = True
+
+        conn.get_historical_data(channelids='channel1', begintime=10000, endtime=20000)
+        self.assertEqual({
+                six.u('msg'): 'method',
+                six.u('method'): six.u(GET_HISTORICAL_DATA),
+                six.u('params'): [{
+                    six.u('channelIds'): [six.u('channel1')],
+                    six.u('beginTime'): 10000,
+                    six.u('endTime'): 20000
+                }],
+                six.u('id'): six.u('0')
+            }, sock.sent_queue.get(timeout=sock.timeout))
 
     def test_call_error(self):
         sock = MockSock()
