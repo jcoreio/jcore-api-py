@@ -1,4 +1,4 @@
-# connect(api_token, [create_socket])
+# `connect(api_token, [create_socket])`
 
 Connects to a jcore.io server via WebSocket.
 

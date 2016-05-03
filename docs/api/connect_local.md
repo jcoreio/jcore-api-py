@@ -1,4 +1,4 @@
-# connect_local([create_socket])
+# `connect_local([create_socket])`
 
 Connects to a jcore.io server on the local machine via UNIX socket.
 

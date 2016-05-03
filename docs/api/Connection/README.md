@@ -1,4 +1,4 @@
-# Connection
+# `Connection`
 
 This class represents a connection to the server and allows you to call API methods.
 
