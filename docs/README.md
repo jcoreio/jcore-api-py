@@ -10,3 +10,4 @@
     * [get_real_time_data([request])](/docs/api/Connection/get_real_time_data.md)
     * [set_real_time_data(data)](/docs/api/Connection/set_real_time_data.md)
     * [get_historical_data(request)](/docs/api/Connection/get_historical_data.md)
+  * [Schema](/docs/api/schema/README.md)

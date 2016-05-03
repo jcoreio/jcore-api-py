@@ -7,13 +7,7 @@
 
 ### Returns
 
-*(dict)*: a mapping from channelId (string) to metadata for that channel, a *(dict)* containing:
-  * [`'name'`] *(string)*: the channel's display name
-  * [`'min'`] *(float)*: lower bound of the display range
-  * [`'max'`] *(float)*: upper bound of the display range
-  * [`'units'`] *(string)*: what units the channel values are in
-  * [`'precision'`]: *(float)*: display precision.  Should be an unsigned int, but is `float` because it
-    comes from JSON.
+*(dict)*: A parsed [JSON Metadata message](../schema/metadata.md).
 
 ### Example
 

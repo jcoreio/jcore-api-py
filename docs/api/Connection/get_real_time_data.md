@@ -7,9 +7,7 @@
 
 ### Returns
 
-*(dict)*: a mapping from channelId (string) to metadata for that channel, a *(dict)* containing:
-  * [`'timestamp'`] *(string)*: the timestamp for the data, an ISO date string.
-  * [`'data'`] *(float)*: a *dict* mapping from channel id *(string)* to value *(float)*
+*(dict)*: a parsed [JSON Real-Time Data message](schema/realTimeData.md).
 
 ### Example
 
