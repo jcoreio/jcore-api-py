@@ -146,9 +146,10 @@ class JCoreAPIConnection:
                 self._autherror = error
                 self._authcv.notify_all()
 
-            for method_info in six.itervalues(self._method_calls):
-                method_info['error'] = error
-                method_info['cv'].notify()
+            for method_call in six.itervalues(self._method_calls):
+                method_call['error'] = error
+                method_call['done'] = True
+                method_call['cv'].notify()
 
             self._method_calls.clear()
 
@@ -228,15 +229,20 @@ class JCoreAPIConnection:
         assert isinstance(method, str) and len(
             method) > 0, "method must be a non-empty str"
 
-        method_info = None
+        method_call = None
 
         self._lock.acquire()
         try:
             self._require_auth()
             _id = str(self._cur_method_id)
             self._cur_method_id += 1
-            method_info = {'cv': threading.Condition(self._lock)}
-            self._method_calls[_id] = method_info
+            method_call = {
+                'done': False,
+                'error': None,
+                'result': None,
+                'cv': threading.Condition(self._lock) 
+            }
+            self._method_calls[_id] = method_call
         finally:
             self._lock.release()
 
@@ -248,14 +254,14 @@ class JCoreAPIConnection:
 
         self._lock.acquire()
         try:
-            while 'result' not in method_info and 'error' not in method_info:
-                _wait(method_info['cv'], self._sock.gettimeout())
+            while not method_call['done']:
+                _wait(method_call['cv'], self._sock.gettimeout())
         finally:
             self._lock.release()
 
-        if 'error' in method_info:
-            raise method_info['error']
-        return method_info['result']
+        if method_call['error']:
+            raise method_call['error']
+        return method_call['result']
 
     def _send(self, message_name, message):
         sock = None
@@ -310,10 +316,19 @@ class JCoreAPIConnection:
                         error_msg + (": " + protocol_error if protocol_error else ""), message)
                     self._authcv.notify_all()
 
-                elif msg == RESULT:
+                else:
                     if six.u('id') not in message:
-                        raise JCoreAPIInvalidResponseException(
-                            "id field is missing", message)
+                        if msg != RESULT:
+                            raise JCoreAPIInvalidResponseException(
+                                'invalid message type: ' + msg, message)
+                        else:
+                            raise JCoreAPIInvalidResponseException(
+                                "id field is missing", message)
+
+                    if msg != RESULT:
+                        message[six.u('error')] = JCoreAPIInvalidResponseException(
+                            'invalid message type: ' + msg, message)
+
                     _id = message[six.u('id')]
                     if not (isinstance(_id, six.text_type) and len(_id) > 0):
                         raise JCoreAPIInvalidResponseException(
@@ -323,22 +338,21 @@ class JCoreAPIConnection:
                         raise JCoreAPIUnexpectedException(
                             "method call not found: " + _id, message)
 
-                    method_info = self._method_calls[_id]
+                    method_call = self._method_calls[_id]
                     del self._method_calls[_id]
 
                     if six.u('error') in message:
-                        method_info['error'] = JCoreAPIServerException(
-                            _from_protocol_error(message[six.u('error')]), message)
+                        error = message[six.u('error')]
+                        if isinstance(error, JCoreAPIInvalidResponseException):
+                            method_call['error'] = error
+                        else:
+                            method_call['error'] = JCoreAPIServerException(
+                                _from_protocol_error(error), message)
                     elif six.u('result') in message:
-                        method_info['result'] = message[six.u('result')]
-                    else:
-                        method_info['error'] = JCoreAPIInvalidResponseException(
-                            "message is missing result or error", message)
-                    method_info['cv'].notify()
+                        method_call['result'] = message[six.u('result')]
+                    method_call['done'] = True
+                    method_call['cv'].notify()
 
-                else:
-                    raise JCoreAPIInvalidResponseException(
-                        "unknown message type: " + msg, message)
             finally:
                 self._lock.release()
         except JCoreAPIException as e:

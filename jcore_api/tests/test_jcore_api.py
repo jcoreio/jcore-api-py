@@ -70,6 +70,8 @@ class TestAPI(TestCase):
         self.assertFalse(conn._authenticating)
         self.assertTrue(conn._authenticated)
 
+        thread.join(1)
+
     def test_auth_failure(self):
         sock = MockSock()
         conn = JCoreAPIConnection(sock)
@@ -88,6 +90,8 @@ class TestAPI(TestCase):
             self.fail("authenticate should have raised exception")
         except JCoreAPIAuthException as e:
             pass
+        finally:
+            thread.join(1)
 
         self.assertFalse(conn._authenticating)
         self.assertFalse(conn._authenticated)
@@ -176,6 +180,8 @@ class TestAPI(TestCase):
         self.assertFalse(conn._authenticated)
         self.assertTrue(conn._closed)
 
+        thread.join(1)
+
     def test_call(self):
         sock = MockSock()
         conn = JCoreAPIConnection(sock)
@@ -201,6 +207,8 @@ class TestAPI(TestCase):
 
         self.assertEqual(conn.get_metadata(), result1)
         self.assertEqual(conn.get_metadata(), result2)
+
+        thread.join(1)
 
     def test_methods_present(self):
         sock = MockSock()
@@ -287,11 +295,6 @@ class TestAPI(TestCase):
             sock.recv_queue.put_nowait({"msg": RESULT, 'result': result1})
             sock.recv_queue.put_nowait(
                 {"msg": RESULT, 'id': None, 'result': result1})
-            sock.recv_queue.put_nowait({"msg": RESULT, 'id': '0'})
-            sock.recv_queue.put_nowait(
-                {"msg": RESULT, 'id': '0', 'result': None})
-            sock.recv_queue.put_nowait(
-                {"msg": RESULT, 'id': '1', 'result': result1})
             sock.recv_queue.put_nowait(
                 {"msg": "wtf is this?", 'id': '0', 'result': result1})
 
@@ -339,6 +342,8 @@ class TestAPI(TestCase):
             self.fail("get_metadata should have raised exception")
         except JCoreAPIConnectionClosedException:
             pass
+        finally:
+            thread.join(1)
 
         self.assertEqual(conn._closed, True)
         self.assertEqual(conn._authenticated, False)
@@ -378,6 +383,8 @@ class TestAPI(TestCase):
             self.fail("get_metadata should have raised exception")
         except JCoreAPITimeoutException:
             pass
+        finally:
+            thread.join(1)
 
     def test_close(self):
         sock = MockSock()
