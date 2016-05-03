@@ -10,7 +10,7 @@ proxy, set the timeout, etc.).  It is passed one argument: the unix socket path,
 
 ### Returns
 
-([*Connection*](Connection/README.md)): an object that keeps track of a connection to the server and allows you to call API
+([*JCoreAPIConnection*](JCoreAPIConnection/README.md)): an object that keeps track of a connection to the server and allows you to call API
 methods.
 
 ### Example
