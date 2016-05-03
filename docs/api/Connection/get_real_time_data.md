@@ -1,5 +1,7 @@
 # `get_real_time_data([request])`
 
+Gets the latest values of channel(s).
+
 ### Arguments
 
 1. [`request`] *(dict)*: request options, including:

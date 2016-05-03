@@ -1,5 +1,7 @@
 # `get_metadata([request])`
 
+Gets metadata about channel(s), for instance the name and units.
+
 ### Arguments
 
 1. [`request`] *(dict)*: request options, including:
