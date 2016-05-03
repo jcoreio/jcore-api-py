@@ -31,17 +31,20 @@ def _from_protocol_error(error):
         if isinstance(error, dict):
             return error[six.u('error')] if six.u('error') in error else error
 
+def _get_list(type_, items, name="items"):
+    """
+    Normalizes maybe item or list of items to maybe list
+    """
+    if isinstance(items, type_):
+        return [items]
+    if items:
+        assert isinstance(items, list), name + " must be a " + type_ + " or list if present"
+        for channelid in items:
+            assert isinstance(channelid, type_), name + " must all be of type " + type_
+    return items
+
 def _get_channelids(channelids=None):
-    """
-    Normalizes maybe string or list of strings to maybe list of strings
-    """
-    if isinstance(channelids, six.string_types):
-        return [channelids]
-    if channelids:
-        assert isinstance(channelids, list), "channelids must be a string or list if present"
-        for channelid in channelids:
-            assert isinstance(channelid, six.string_types), "channelids must all be strings"
-    return channelids
+    return _get_list(six.string_types, channelids, name="channelids")
 
 class JCoreAPIConnection:
     """
