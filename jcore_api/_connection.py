@@ -253,14 +253,14 @@ class JCoreAPIConnection:
 
             while not method_call['done']:
                 _wait(method_call['cv'], self._sock.gettimeout())
+
+            if method_call['error']:
+                raise method_call['error']
+            return method_call['result']
         finally:
             if _id in self._method_calls:
                 del self._method_calls[_id]
             self._lock.release()
-
-        if method_call['error']:
-            raise method_call['error']
-        return method_call['result']
 
     def _send(self, message_name, message):
         sock = None
