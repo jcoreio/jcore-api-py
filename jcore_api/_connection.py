@@ -190,18 +190,19 @@ class JCoreAPIConnection:
 
         channelids: a string or list of strings specifying the channel id(s) to get data for
 
-        returns TODO
+        returns: a JSON Real-Time Data object 
+            (https://jcoreio.gitbooks.io/jcore-api-py/content/docs/api/schema/realTimeData.md)
         """
         return self._call(GET_REAL_TIME_DATA, [{'channelIds': _get_channelids(channelids)}] if channelids else [])
 
-    def set_real_time_data(self, request):
+    def set_real_time_data(self, data):
         """
         Sets real-time data on the server.
 
-        request: TODO
+        data: a dict mapping from channel id to value
         """
-        assert isinstance(request, dict), "request must be a dict"
-        self._call(SET_REAL_TIME_DATA, [request])
+        assert isinstance(data, dict), "data must be a dict"
+        self._call(SET_REAL_TIME_DATA, [data])
 
     def get_metadata(self, channelids=None):
         """
@@ -209,19 +210,19 @@ class JCoreAPIConnection:
 
         channelids: a string or list of strings specifying the channel id(s) to get data for
 
-        returns a dict mapping from channelId to dicts of min, max, name, and precision.
-                        all strings in the return value are unicode
+        returns: a dict mapping from channel id to JSON Metadata object
+            (https://jcoreio.gitbooks.io/jcore-api-py/content/docs/api/schema/metadata.md)
         """
         return self._call(GET_METADATA, [{'channelIds': _get_channelids(channelids)}] if channelids else [])
 
-    def set_metadata(self, request):
+    def set_metadata(self, metadata):
         """
         Sets metadata on the server.
 
-        request: TODO
+        metadata: a dict mapping from channel id to JSON Metadata object
         """
-        assert isinstance(request, dict), "request must be a dict"
-        self._call(SET_METADATA, [request])
+        assert isinstance(metadata, dict), "metadata must be a dict"
+        self._call(SET_METADATA, [metadata])
 
     def get_historical_data(self, channelids, begintime, endtime):
         """
@@ -233,10 +234,8 @@ class JCoreAPIConnection:
         endtime: the end of the time range to fetch; either an ISO Date
                    string or a numeric timestamp (milliseconds since the epoch)
 
-        returns: a dict with the following fields (unicode keys):
-                 - beginTime: the beginning of the result time range: milliseconds since the epoch
-                 - endTime: the beginning of the result time range: milliseconds since the epoch
-                 - data: TODO
+        returns: a JSON Historical Data object
+            (https://jcoreio.gitbooks.io/jcore-api-py/content/docs/api/schema/historicalData.md)
         """
         channelids = _get_channelids(channelids)
         assert isinstance(begintime, int) or isinstance(begintime, six.string_types), \
