@@ -15,8 +15,8 @@ from jcore_api._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, \
     GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA, GET_HISTORICAL_DATA
 from jcore_api import JCoreAPIConnection
 from jcore_api.exceptions import JCoreAPIAuthException, JCoreAPITimeoutException, \
-    JCoreAPIConnectionClosedException, JCoreAPIServerException, \
-    JCoreAPIInvalidResponseException
+    JCoreAPIConnectionClosedException, JCoreAPIErrorResponseException, \
+    JCoreAPIInvalidMessageException
 
 token = six.u("this is a test")
 
@@ -342,7 +342,7 @@ class TestAPI(TestCase):
         try:
             conn.get_metadata()
             self.fail("get_metadata should have raised an exception")
-        except JCoreAPIServerException as e:
+        except JCoreAPIErrorResponseException as e:
             self.assertTrue('test_call_error' in e.args[0])
             pass
         finally:
@@ -376,7 +376,7 @@ class TestAPI(TestCase):
         try:
             conn.get_metadata()
             self.fail("get_metadata should have raised exception")
-        except JCoreAPIInvalidResponseException:
+        except JCoreAPIInvalidMessageException:
             pass
         finally:
             thread.join(timeout=sock.timeout)

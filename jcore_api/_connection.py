@@ -10,8 +10,8 @@ import six
 from ._protocol import CONNECT, CONNECTED, FAILED, METHOD, RESULT, GET_HISTORICAL_DATA, \
     GET_METADATA, SET_METADATA, GET_REAL_TIME_DATA, SET_REAL_TIME_DATA
 from .exceptions import JCoreAPIException, JCoreAPITimeoutException, JCoreAPIAuthException, \
-    JCoreAPIConnectionClosedException, JCoreAPIUnexpectedException, \
-    JCoreAPIServerException, JCoreAPIInvalidResponseException
+    JCoreAPIConnectionClosedException, JCoreAPIUnexpectedMessageException, \
+    JCoreAPIErrorResponseException, JCoreAPIInvalidMessageException
 
 def _default_on_unexpected_exception(exc_info):
     print(*traceback.format_exception(*exc_info), file=sys.stderr)
@@ -99,8 +99,7 @@ class JCoreAPIConnection:
                     traceback.print_exc()
             except Exception as e:
                 try:
-                    self._on_unexpected_exception((JCoreAPIUnexpectedException, JCoreAPIUnexpectedException(
-                        "unexpected other exception", e), sys.exc_info()[2]))
+                    self._on_unexpected_exception(sys.exc_info()[2])
                 except Exception as e:
                     traceback.print_exc()
 
@@ -302,12 +301,12 @@ class JCoreAPIConnection:
     def _handle_message(self, event):
         message = json.loads(event)
         if six.u('msg') not in message:
-            raise JCoreAPIInvalidResponseException(
+            raise JCoreAPIInvalidMessageException(
                 "msg field is missing", message)
 
         msg = message[six.u('msg')]
         if not (isinstance(msg, six.text_type) and len(msg) > 0):
-            raise JCoreAPIInvalidResponseException(
+            raise JCoreAPIInvalidMessageException(
                 "msg must be a non-empty unicode string", message)
 
         self._lock.acquire()
@@ -332,7 +331,7 @@ class JCoreAPIConnection:
         self._lock.acquire()
         try:
             if not self._authenticating:
-                raise JCoreAPIUnexpectedException(
+                raise JCoreAPIUnexpectedMessageException(
                     "unexpected connected message", message)
             self._authenticating = False
             self._authenticated = True
@@ -343,6 +342,9 @@ class JCoreAPIConnection:
     def _handle_failed_message(self, message):
         self._lock.acquire()
         try:
+            if not self._authenticating:
+                raise JCoreAPIUnexpectedMessageException(
+                    "unexpected auth failed message", message)
             error_msg = "authentication failed" if self._authenticating else "unexpected auth failed message"
             protocol_error = _from_protocol_error(
                 message[six.u('error')]) if six.u('error') in message else None
@@ -361,11 +363,11 @@ class JCoreAPIConnection:
 
             _id = message[six.u('id')]
             if not (isinstance(_id, six.text_type) and len(_id) > 0):
-                raise JCoreAPIInvalidResponseException(
+                raise JCoreAPIInvalidMessageException(
                     "id must be a non-empty unicode string", message)
 
             if _id not in self._method_calls:
-                raise JCoreAPIUnexpectedException(
+                raise JCoreAPIUnexpectedMessageException(
                     "method call not found: " + _id, message)
 
             method_call = self._method_calls[_id]
@@ -375,7 +377,7 @@ class JCoreAPIConnection:
                 if isinstance(error, JCoreAPIException):
                     method_call['error'] = error
                 else:
-                    method_call['error'] = JCoreAPIServerException(
+                    method_call['error'] = JCoreAPIErrorResponseException(
                         _from_protocol_error(error), message)
             elif six.u('result') in message:
                 method_call['result'] = message[six.u('result')]
@@ -388,14 +390,14 @@ class JCoreAPIConnection:
         msg = message[six.u('msg')]
         if six.u('id') not in message:
             if msg != RESULT:
-                raise JCoreAPIInvalidResponseException(
+                raise JCoreAPIInvalidMessageException(
                     'invalid message type: ' + msg, message)
             else:
-                raise JCoreAPIInvalidResponseException(
+                raise JCoreAPIInvalidMessageException(
                     "id field is missing", message)
 
         if six.u('error') not in message:
-            message[six.u('error')] = JCoreAPIInvalidResponseException(
+            message[six.u('error')] = JCoreAPIInvalidMessageException(
                 'invalid message type: ' + msg, message)
 
         # handle it like a result message so that error gets raised on the

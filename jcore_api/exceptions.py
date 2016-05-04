@@ -5,9 +5,9 @@ class JCoreAPIException(Exception):
     pass
 
 
-class JCoreAPIServerException(JCoreAPIException):
+class JCoreAPIErrorResponseException(JCoreAPIException):
     """
-    Will be raised if the server responds to a request with an error.
+    Will be raised if the server responds to a JCore API request with an error.
     """
     pass
 
@@ -21,28 +21,28 @@ class JCoreAPITimeoutException(JCoreAPIException):
 
 class JCoreAPIConnectionClosedException(JCoreAPIException):
     """
-    Will be raised if a JCore API request is made while the connection is closed.
+    Will be raised if a connection closes during a JCore API request or it was already closed before the request
+    was made.
     """
     pass
 
 
 class JCoreAPIAuthException(JCoreAPIException):
     """
-    Will be raised if a JCore API request is made while the connection is not authorized.
+    Will be raised if authentication fails or a JCore API request is made while the connection is not authenticated.
     """
     pass
 
 
-class JCoreAPIUnexpectedException(JCoreAPIException):
+class JCoreAPIUnexpectedMessageException(JCoreAPIException):
     """
-    Will be raised if an unexpected exception is raised or unexpected message is received
-    on the receive thread.
+    Will be raised if an unexpected message is received on the receive thread.
     """
     pass
 
 
-class JCoreAPIInvalidResponseException(JCoreAPIException):
+class JCoreAPIInvalidMessageException(JCoreAPIException):
     """
-    Will be raised if an invalid response is received by the JCore API.
+    Will be raised if the JCore API receives an invalid response.
     """
     pass
