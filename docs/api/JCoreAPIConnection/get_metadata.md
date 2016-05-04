@@ -10,6 +10,14 @@ Gets metadata about channel(s), for instance the name and units.
 
 *(dict)*: A parsed [JSON Metadata message](../schema/metadata.md).
 
+### Raises
+
+* `JCoreAPIAuthException`: if authentication is required and the connection is not authenticated.
+* `JCoreAPITimeoutException`: if the request times out.
+* `JCoreAPIConnectionClosedException`: if the connection closes or was already closed.
+* `JCoreAPIErrorResponseException`: if the server responds with an error.
+* `JCoreAPIInvalidMessageException`: if the client receives an invalid response.
+
 ### Example
 
 ```py

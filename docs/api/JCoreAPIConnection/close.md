@@ -2,6 +2,11 @@
 
 Closes the connection.  Any outstanding method calls will throw the given (or default) error.
 
+### Raises
+
+* `JCoreAPITimeoutException`: if closing the underlying socket timed out.
+
+
 ### Arguments
 
 1. [`error`] *(Exception)*: the reason the connection closed.

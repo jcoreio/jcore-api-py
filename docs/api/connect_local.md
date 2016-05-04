@@ -14,6 +14,12 @@ proxy, set the timeout, etc.).  It is passed one argument: the unix socket path,
 ([*JCoreAPIConnection*](JCoreAPIConnection/README.md)): an object that keeps track of a connection to the server and allows you to call API
 methods.
 
+### Raises
+
+* `JCoreAPIAuthException`: if authentication fails.
+* `JCoreAPITimeoutException`: if authentication times out.
+* `JCoreAPIConnectionClosedException`: if the connection closes during authentication.
+
 ### Example
 
 ```py

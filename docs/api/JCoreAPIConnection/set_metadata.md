@@ -9,6 +9,15 @@ Sets metadata about channel(s), for instance the name and units.
   If any of the given channel ids don't exist, they will be created and populated with default values before being
   set.
 
+### Raises
+
+* `JCoreAPIAuthException`: if authentication is required and the connection is not authenticated.
+* `JCoreAPITimeoutException`: if the request times out.
+* `JCoreAPIConnectionClosedException`: if the connection closes or was already closed.
+* `JCoreAPIErrorResponseException`: if the server responds with an error.
+* `JCoreAPIInvalidMessageException`: if the client receives an invalid response.
+
+
 ### Example
 
 ```py

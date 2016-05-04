@@ -6,13 +6,22 @@ Gets historical values for channel(s).
 
 * `channelids` *(string|list)*: one or more channel ids to get data for
 * `begintime`: *(string|int)*: start of time range to get data for, either millseconds since the epoch,
-               or an ISO date string
+  or an ISO date string
 * `endtime`:   *(string|int)*: end of time range to get data for, either milliseconds since the epoch,
-               or an ISO date string
+  or an ISO date string
 
 ### Returns
 
 *(dict)*: a parsed [JSON Historical Data object](../schema/historicalData.md)
+
+### Raises
+
+* `JCoreAPIAuthException`: if authentication is required and the connection is not authenticated.
+* `JCoreAPITimeoutException`: if the request times out.
+* `JCoreAPIConnectionClosedException`: if the connection closes or was already closed.
+* `JCoreAPIErrorResponseException`: if the server responds with an error.
+* `JCoreAPIInvalidMessageException`: if the client receives an invalid response.
+
 
 ### Example
 
