@@ -257,6 +257,8 @@ class JCoreAPIConnection:
             while not method_call['done']:
                 _wait(method_call['cv'], self._sock.gettimeout())
         finally:
+            if _id in self._method_calls:
+                del self._method_calls[_id]
             self._lock.release()
 
         if method_call['error']:
@@ -334,7 +336,6 @@ class JCoreAPIConnection:
                     "method call not found: " + _id, message)
 
             method_call = self._method_calls[_id]
-            del self._method_calls[_id]
 
             if six.u('error') in message:
                 error = message[six.u('error')]
