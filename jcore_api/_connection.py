@@ -281,6 +281,75 @@ class JCoreAPIConnection:
         message['msg'] = message_name
         sock.send(json.dumps(message))
 
+    def _handle_connected_message(self, message):
+        self._lock.acquire()
+        try:
+            if not self._authenticating:
+                raise JCoreAPIUnexpectedException(
+                    "unexpected connected message", message)
+            self._authenticating = False
+            self._authenticated = True
+            self._authcv.notify_all()
+        finally:
+            self._lock.release()
+
+    def _handle_failed_message(self, message):
+        self._lock.acquire()
+        try:
+            error_msg = "authentication failed" if self._authenticating else "unexpected auth failed message"
+            protocol_error = _from_protocol_error(
+                message[six.u('error')]) if six.u('error') in message else None
+            self._authenticating = False
+            self._authenticated = False
+            self._autherror = JCoreAPIAuthException(
+                error_msg + (": " + protocol_error if protocol_error else ""), message)
+            self._authcv.notify_all()
+        finally:
+            self._lock.release()
+
+    def _handle_result_message(self, message):
+        self._lock.acquire()
+        try:
+            msg = message[six.u('msg')]
+
+            if six.u('id') not in message:
+                if msg != RESULT:
+                    raise JCoreAPIInvalidResponseException(
+                        'invalid message type: ' + msg, message)
+                else:
+                    raise JCoreAPIInvalidResponseException(
+                        "id field is missing", message)
+
+            if msg != RESULT:
+                message[six.u('error')] = JCoreAPIInvalidResponseException(
+                    'invalid message type: ' + msg, message)
+
+            _id = message[six.u('id')]
+            if not (isinstance(_id, six.text_type) and len(_id) > 0):
+                raise JCoreAPIInvalidResponseException(
+                    "id must be a non-empty unicode string", message)
+
+            if _id not in self._method_calls:
+                raise JCoreAPIUnexpectedException(
+                    "method call not found: " + _id, message)
+
+            method_call = self._method_calls[_id]
+            del self._method_calls[_id]
+
+            if six.u('error') in message:
+                error = message[six.u('error')]
+                if isinstance(error, JCoreAPIInvalidResponseException):
+                    method_call['error'] = error
+                else:
+                    method_call['error'] = JCoreAPIServerException(
+                        _from_protocol_error(error), message)
+            elif six.u('result') in message:
+                method_call['result'] = message[six.u('result')]
+            method_call['done'] = True
+            method_call['cv'].notify()
+        finally:
+            self._lock.release()
+
     def _on_message(self, event):
         try:
             message = json.loads(event)
@@ -299,60 +368,11 @@ class JCoreAPIConnection:
                     return
 
                 if msg == CONNECTED:
-                    if not self._authenticating:
-                        raise JCoreAPIUnexpectedException(
-                            "unexpected connected message", message)
-                    self._authenticating = False
-                    self._authenticated = True
-                    self._authcv.notify_all()
-
+                    self._handle_connected_message(message)
                 elif msg == FAILED:
-                    error_msg = "authentication failed" if self._authenticating else "unexpected auth failed message"
-                    protocol_error = _from_protocol_error(
-                        message[six.u('error')]) if six.u('error') in message else None
-                    self._authenticating = False
-                    self._authenticated = False
-                    self._autherror = JCoreAPIAuthException(
-                        error_msg + (": " + protocol_error if protocol_error else ""), message)
-                    self._authcv.notify_all()
-
+                    self._handle_failed_message(message)
                 else:
-                    if six.u('id') not in message:
-                        if msg != RESULT:
-                            raise JCoreAPIInvalidResponseException(
-                                'invalid message type: ' + msg, message)
-                        else:
-                            raise JCoreAPIInvalidResponseException(
-                                "id field is missing", message)
-
-                    if msg != RESULT:
-                        message[six.u('error')] = JCoreAPIInvalidResponseException(
-                            'invalid message type: ' + msg, message)
-
-                    _id = message[six.u('id')]
-                    if not (isinstance(_id, six.text_type) and len(_id) > 0):
-                        raise JCoreAPIInvalidResponseException(
-                            "id must be a non-empty unicode string", message)
-
-                    if _id not in self._method_calls:
-                        raise JCoreAPIUnexpectedException(
-                            "method call not found: " + _id, message)
-
-                    method_call = self._method_calls[_id]
-                    del self._method_calls[_id]
-
-                    if six.u('error') in message:
-                        error = message[six.u('error')]
-                        if isinstance(error, JCoreAPIInvalidResponseException):
-                            method_call['error'] = error
-                        else:
-                            method_call['error'] = JCoreAPIServerException(
-                                _from_protocol_error(error), message)
-                    elif six.u('result') in message:
-                        method_call['result'] = message[six.u('result')]
-                    method_call['done'] = True
-                    method_call['cv'].notify()
-
+                    self._handle_result_message(message)
             finally:
                 self._lock.release()
         except JCoreAPIException as e:
