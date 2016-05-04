@@ -78,25 +78,31 @@ class JCoreAPIConnection:
         self._recv_thread.daemon = True
 
     def _run_recv_thread(self):
-        # store reference because this will be set to None upon close
+        # skip locking in this method since it's only reading fields
         sock = self._sock
+
+        if not sock:
+            return
+
         while not self._closed:
-            message = None
             try:
-                message = sock.recv()
+                self._handle_message(sock.recv())
             except JCoreAPITimeoutException:
                 continue
             except JCoreAPIConnectionClosedException as error:
                 self.close(error, sock_is_closed=True)
                 return
+            except JCoreAPIException as e:
+                try:
+                    self._on_unexpected_exception(sys.exc_info())
+                except Exception as e:
+                    traceback.print_exc()
             except Exception as e:
                 try:
                     self._on_unexpected_exception((JCoreAPIUnexpectedException, JCoreAPIUnexpectedException(
                         "unexpected other exception", e), sys.exc_info()[2]))
                 except Exception as e:
                     traceback.print_exc()
-
-            self._on_message(message)
 
     def authenticate(self, token):
         """
@@ -127,6 +133,20 @@ class JCoreAPIConnection:
                 raise self._autherror
         finally:
             self._authenticating = False
+            self._lock.release()
+        
+    def _require_auth(self):
+        self._lock.acquire()
+        try:
+            if self._closed:
+                raise JCoreAPIConnectionClosedException(
+                    "connection is already closed")
+            if self._authenticating:
+                raise JCoreAPIAuthException(
+                    "authentication has not finished yet")
+            if self._auth_required and not self._authenticated:
+                raise JCoreAPIAuthException("not authenticated")
+        finally:
             self._lock.release()
 
     def close(self, error=JCoreAPIConnectionClosedException('connection closed'), sock_is_closed=False):
@@ -280,6 +300,35 @@ class JCoreAPIConnection:
         message['msg'] = message_name
         sock.send(json.dumps(message))
 
+    def _handle_message(self, event):
+        message = json.loads(event)
+        if six.u('msg') not in message:
+            raise JCoreAPIInvalidResponseException(
+                "msg field is missing", message)
+
+        msg = message[six.u('msg')]
+        if not (isinstance(msg, six.text_type) and len(msg) > 0):
+            raise JCoreAPIInvalidResponseException(
+                "msg must be a non-empty unicode string", message)
+
+        self._lock.acquire()
+        try:
+            if self._closed:
+                # don't raise an exception here, it has already been
+                # handled in _run_recv_thread
+                return
+
+            if msg == CONNECTED:
+                self._handle_connected_message(message)
+            elif msg == FAILED:
+                self._handle_failed_message(message)
+            elif msg == RESULT:
+                self._handle_result_message(message)
+            else:
+                self._handle_unknown_message(message)                 
+        finally:
+            self._lock.release()
+
     def _handle_connected_message(self, message):
         self._lock.acquire()
         try:
@@ -311,18 +360,6 @@ class JCoreAPIConnection:
         try:
             msg = message[six.u('msg')]
 
-            if six.u('id') not in message:
-                if msg != RESULT:
-                    raise JCoreAPIInvalidResponseException(
-                        'invalid message type: ' + msg, message)
-                else:
-                    raise JCoreAPIInvalidResponseException(
-                        "id field is missing", message)
-
-            if msg != RESULT:
-                message[six.u('error')] = JCoreAPIInvalidResponseException(
-                    'invalid message type: ' + msg, message)
-
             _id = message[six.u('id')]
             if not (isinstance(_id, six.text_type) and len(_id) > 0):
                 raise JCoreAPIInvalidResponseException(
@@ -348,53 +385,20 @@ class JCoreAPIConnection:
         finally:
             self._lock.release()
 
-    def _on_message(self, event):
-        try:
-            message = json.loads(event)
-            if six.u('msg') not in message:
+    def _handle_unknown_message(self, message):
+        msg = message[six.u('msg')]
+        if six.u('id') not in message:
+            if msg != RESULT:
                 raise JCoreAPIInvalidResponseException(
-                    "msg field is missing", message)
-
-            msg = message[six.u('msg')]
-            if not (isinstance(msg, six.text_type) and len(msg) > 0):
+                    'invalid message type: ' + msg, message)
+            else:
                 raise JCoreAPIInvalidResponseException(
-                    "msg must be a non-empty unicode string", message)
+                    "id field is missing", message)
 
-            self._lock.acquire()
-            try:
-                if self._closed:
-                    return
+        if six.u('error') not in message:
+            message[six.u('error')] = JCoreAPIInvalidResponseException(
+                'invalid message type: ' + msg, message)
 
-                if msg == CONNECTED:
-                    self._handle_connected_message(message)
-                elif msg == FAILED:
-                    self._handle_failed_message(message)
-                else:
-                    self._handle_result_message(message)
-            finally:
-                self._lock.release()
-        except JCoreAPIException as e:
-            try:
-                self._on_unexpected_exception(sys.exc_info())
-            except Exception as e:
-                traceback.print_exc()
-        except Exception as e:
-            try:
-                self._on_unexpected_exception((JCoreAPIUnexpectedException, JCoreAPIUnexpectedException(
-                    "unexpected other exception", e), sys.exc_info()[2]))
-            except Exception as e:
-                traceback.print_exc()
-
-    def _require_auth(self):
-        self._lock.acquire()
-        try:
-            if self._closed:
-                raise JCoreAPIConnectionClosedException(
-                    "connection is already closed")
-            if self._authenticating:
-                raise JCoreAPIAuthException(
-                    "authentication has not finished yet")
-            if self._auth_required and not self._authenticated:
-                raise JCoreAPIAuthException("not authenticated")
-        finally:
-            self._lock.release()
+        # handle it like a result message so that error gets raised on the
+        # caller for its id
+        return self._handle_result_message(message)
