@@ -152,8 +152,7 @@ class JCoreAPIConnection:
         """
         Close this connection.
 
-        error: the error to raise (wrapped in a JCoreAPIConnectionClosedException) 
-               from all outstanding requests.
+        error: the error to raise from all outstanding requests.
         sock_is_closed: if True, will not redundantly call close() on the socket.
         """
         self._lock.acquire()
@@ -309,6 +308,8 @@ class JCoreAPIConnection:
             raise JCoreAPIInvalidMessageException(
                 "msg must be a non-empty unicode string", message)
 
+        # Synchronize all message handling to ensure we'll ignore messages
+        # after the connection has closed
         self._lock.acquire()
         try:
             if self._closed:
