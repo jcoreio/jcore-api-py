@@ -230,6 +230,7 @@ class JCoreAPIConnection:
             method) > 0, "method must be a non-empty str"
 
         method_call = None
+        _id = None
 
         self._lock.acquire()
         try:
@@ -243,17 +244,13 @@ class JCoreAPIConnection:
                 'cv': threading.Condition(self._lock) 
             }
             self._method_calls[_id] = method_call
-        finally:
-            self._lock.release()
 
-        self._send(METHOD, {
-            'id': _id,
-            'method': method,
-            'params': params
-        })
+            self._send(METHOD, {
+                'id': _id,
+                'method': method,
+                'params': params
+            })
 
-        self._lock.acquire()
-        try:
             while not method_call['done']:
                 _wait(method_call['cv'], self._sock.gettimeout())
         finally:
