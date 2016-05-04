@@ -1,6 +1,7 @@
 # `connect_local([create_socket])`
 
-Connects to a jcore.io server on the local machine via UNIX socket.
+Connects to a jcore.io server on the local machine via UNIX socket.  Unlike [`connect`](connect.md), this does not
+require authentication.
 
 ### Arguments
 

@@ -1,6 +1,6 @@
 # `connect(api_token, [create_socket])`
 
-Connects to a jcore.io server via WebSocket.
+Connects to a jcore.io server via WebSocket and authenticates with the given api token.
 
 ### Arguments
 
