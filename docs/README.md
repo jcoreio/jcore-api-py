@@ -2,8 +2,8 @@
 
 * [Read Me](/README.md)
 * [API Reference](/docs/api/README.md)
-  * [connect(api_token, [create_socket])](/docs/api/connect.md)
-  * [connect_local([create_socket])](/docs/api/connect_local.md)
+  * [connect(api_token, [create_socket], [**kwargs])](/docs/api/connect.md)
+  * [connect_local([create_socket], [**kwargs])](/docs/api/connect_local.md)
   * [JCoreAPIConnection](/docs/api/JCoreAPIConnection/README.md)
     * [get_metadata([request])](/docs/api/JCoreAPIConnection/get_metadata.md)
     * [set_metadata(data)](/docs/api/JCoreAPIConnection/set_metadata.md)

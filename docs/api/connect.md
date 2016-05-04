@@ -1,4 +1,4 @@
-# `connect(api_token, [create_socket])`
+# `connect(api_token, [create_socket], [**kwargs])`
 
 Connects to a jcore.io server via WebSocket and authenticates with the given api token.
 
@@ -9,6 +9,10 @@ Connects to a jcore.io server via WebSocket and authenticates with the given api
 2. [`create_socket`] *(Function)*: provide this function if you need to configure the WebSocket (for instance, to use a
 proxy, set the timeout, etc.).  It is passed one argument: the `url` to connect to, and should return an instance of
 [`websocket.WebSocket`](https://github.com/liris/websocket-client).
+
+3. [`**kwargs`]: named options for the `JCoreAPIConnection`.  Includes:
+  * [`on_unexpected_exception`] *(Function)*: if provided, this will be called if an unexpected exception occurs while
+    the connection is handling a message it received from the server.  It is called with the output of `sys.exc_info()`.
 
 ### Returns
 
