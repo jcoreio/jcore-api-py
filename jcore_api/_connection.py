@@ -338,7 +338,7 @@ class JCoreAPIConnection:
 
             if six.u('error') in message:
                 error = message[six.u('error')]
-                if isinstance(error, JCoreAPIInvalidResponseException):
+                if isinstance(error, JCoreAPIException):
                     method_call['error'] = error
                 else:
                     method_call['error'] = JCoreAPIServerException(
