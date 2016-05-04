@@ -92,14 +92,9 @@ class JCoreAPIConnection:
             except JCoreAPIConnectionClosedException as error:
                 self.close(error, sock_is_closed=True)
                 return
-            except JCoreAPIException as e:
-                try:
-                    self._on_unexpected_exception(sys.exc_info())
-                except Exception as e:
-                    traceback.print_exc()
             except Exception as e:
                 try:
-                    self._on_unexpected_exception(sys.exc_info()[2])
+                    self._on_unexpected_exception(sys.exc_info())
                 except Exception as e:
                     traceback.print_exc()
 

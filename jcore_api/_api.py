@@ -16,7 +16,7 @@ def _default_create_web_socket(url):
     sock.connect(url)
     return sock
 
-def connect(api_token, create_socket=_default_create_web_socket):
+def connect(api_token, create_socket=_default_create_web_socket, **kwargs):
     """
     Connects to a jcore.io server and authenticates.
 
@@ -37,7 +37,7 @@ def connect(api_token, create_socket=_default_create_web_socket):
         token) > 0, 'decoded token must be a nonempty string'
 
     sock = JCoreWebSocket(create_socket(url))
-    connection = JCoreAPIConnection(sock)
+    connection = JCoreAPIConnection(sock, **kwargs)
     connection.authenticate(token)
     return connection
 
@@ -46,7 +46,7 @@ def _default_create_unix_socket(path):
     sock.connect(path)
     return sock
 
-def connect_local(create_socket=_default_create_unix_socket):
+def connect_local(create_socket=_default_create_unix_socket, **kwargs):
     """
     Connects to a jcore.io server on the local machine via a
     unix socket.
@@ -54,4 +54,4 @@ def connect_local(create_socket=_default_create_unix_socket):
     returns: an JCoreAPIConnection instance.
     """
     sock = JCoreUnixSocket(create_socket(LOCAL_SOCKET_PATH))
-    return JCoreAPIConnection(sock, auth_required=False)
+    return JCoreAPIConnection(sock, auth_required=False, **kwargs)
