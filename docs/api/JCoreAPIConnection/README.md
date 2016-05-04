@@ -9,3 +9,4 @@ This class represents a connection to the server and allows you to call API meth
 * [get_real_time_data([request])](get_real_time_data.md)
 * [set_real_time_data(data)](set_real_time_data.md)
 * [get_historical_data(request)](get_historical_data_md)
+* [close([error], [sock_is_closed])](close.md)

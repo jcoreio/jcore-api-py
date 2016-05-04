@@ -10,6 +10,7 @@
     * [get_real_time_data([request])](/docs/api/JCoreAPIConnection/get_real_time_data.md)
     * [set_real_time_data(data)](/docs/api/JCoreAPIConnection/set_real_time_data.md)
     * [get_historical_data(request)](/docs/api/JCoreAPIConnection/get_historical_data.md)
+    * [close([error], [sock_is_closed])](/docs/api/JCoreAPIConnection/close.md)
   * [Schema](/docs/api/schema/README.md)
     * [Metadata](/docs/api/schema/metadata.md)
     * [Real-Time Data](/docs/api/schema/realTimeData.md)
