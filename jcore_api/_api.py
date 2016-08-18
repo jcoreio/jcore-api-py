@@ -4,7 +4,7 @@ import socket
 
 import six
 
-from websocket import WebSocket
+from ._websocket_client.websocket._core import WebSocket
 
 from ._api_common import LOCAL_SOCKET_PATH
 from ._connection import JCoreAPIConnection
